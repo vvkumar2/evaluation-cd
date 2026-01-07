@@ -1,0 +1,175 @@
+{
+  "metadata": {
+    "total_tests": 5,
+    "passed": 0,
+    "failed": 5,
+    "errors": 0,
+    "use_llm": false,
+    "llm_provider": null
+  },
+  "results": [
+    {
+      "test_id": "test_RefundProcessor.process_refund_request_raises_ValueError",
+      "test_name": "RefundProcessor.process_refund_request_raises_ValueError",
+      "status": "fail",
+      "overall_score": 0.6,
+      "dimension_scores": [],
+      "turn_evaluations": [
+        {
+          "turn_number": 1,
+          "turn_score": 0.6,
+          "feedback": "Failed: explanation"
+        }
+      ],
+      "pass_threshold": 0.8,
+      "feedback": "\u2717 Overall: 0.60 (FAIL)\n\nTurns with Issues:\n  \u2022 Turn 1: Failed: explanation",
+      "improvement_suggestions": [
+        "Fix 'explanation' - failed in 1 turn(s)"
+      ],
+      "metadata": {
+        "total_duration_ms": 64.6982192993164,
+        "num_turns": 1
+      }
+    },
+    {
+      "test_id": "test_RefundProcessor.__init___happy_path",
+      "test_name": "RefundProcessor.__init___happy_path",
+      "status": "fail",
+      "overall_score": 0.6333333333333333,
+      "dimension_scores": [],
+      "turn_evaluations": [
+        {
+          "turn_number": 1,
+          "turn_score": 0.5,
+          "feedback": "Failed: empathy, information_gathering"
+        },
+        {
+          "turn_number": 2,
+          "turn_score": 0.4,
+          "feedback": "Failed: offers_solution, clear_next_steps"
+        },
+        {
+          "turn_number": 3,
+          "turn_score": 1.0,
+          "feedback": "All checkpoints passed"
+        }
+      ],
+      "pass_threshold": 0.7,
+      "feedback": "\u2717 Overall: 0.63 (FAIL)\n\nTurns with Issues:\n  \u2022 Turn 1: Failed: empathy, information_gathering\n  \u2022 Turn 2: Failed: offers_solution, clear_next_steps",
+      "improvement_suggestions": [
+        "Fix 'empathy' - failed in 1 turn(s)",
+        "Fix 'information_gathering' - failed in 1 turn(s)",
+        "Fix 'offers_solution' - failed in 1 turn(s)"
+      ],
+      "metadata": {
+        "total_duration_ms": 176.82695388793945,
+        "num_turns": 3
+      }
+    },
+    {
+      "test_id": "test_RefundProcessor._approve_refund_happy_path",
+      "test_name": "RefundProcessor._approve_refund_happy_path",
+      "status": "fail",
+      "overall_score": 0.6333333333333333,
+      "dimension_scores": [],
+      "turn_evaluations": [
+        {
+          "turn_number": 1,
+          "turn_score": 0.5,
+          "feedback": "Failed: empathy, information_gathering"
+        },
+        {
+          "turn_number": 2,
+          "turn_score": 0.4,
+          "feedback": "Failed: offers_solution, clear_next_steps"
+        },
+        {
+          "turn_number": 3,
+          "turn_score": 1.0,
+          "feedback": "All checkpoints passed"
+        }
+      ],
+      "pass_threshold": 0.7,
+      "feedback": "\u2717 Overall: 0.63 (FAIL)\n\nTurns with Issues:\n  \u2022 Turn 1: Failed: empathy, information_gathering\n  \u2022 Turn 2: Failed: offers_solution, clear_next_steps",
+      "improvement_suggestions": [
+        "Fix 'empathy' - failed in 1 turn(s)",
+        "Fix 'information_gathering' - failed in 1 turn(s)",
+        "Fix 'offers_solution' - failed in 1 turn(s)"
+      ],
+      "metadata": {
+        "total_duration_ms": 177.33073234558105,
+        "num_turns": 3
+      }
+    },
+    {
+      "test_id": "test_RefundProcessor._request_manager_approval_happy_path",
+      "test_name": "RefundProcessor._request_manager_approval_happy_path",
+      "status": "fail",
+      "overall_score": 0.6333333333333333,
+      "dimension_scores": [],
+      "turn_evaluations": [
+        {
+          "turn_number": 1,
+          "turn_score": 0.5,
+          "feedback": "Failed: empathy, information_gathering"
+        },
+        {
+          "turn_number": 2,
+          "turn_score": 0.4,
+          "feedback": "Failed: offers_solution, clear_next_steps"
+        },
+        {
+          "turn_number": 3,
+          "turn_score": 1.0,
+          "feedback": "All checkpoints passed"
+        }
+      ],
+      "pass_threshold": 0.7,
+      "feedback": "\u2717 Overall: 0.63 (FAIL)\n\nTurns with Issues:\n  \u2022 Turn 1: Failed: empathy, information_gathering\n  \u2022 Turn 2: Failed: offers_solution, clear_next_steps",
+      "improvement_suggestions": [
+        "Fix 'empathy' - failed in 1 turn(s)",
+        "Fix 'information_gathering' - failed in 1 turn(s)",
+        "Fix 'offers_solution' - failed in 1 turn(s)"
+      ],
+      "metadata": {
+        "total_duration_ms": 173.37393760681152,
+        "num_turns": 3
+      }
+    },
+    {
+      "test_id": "test_RefundProcessor._request_executive_approval_happy_path",
+      "test_name": "RefundProcessor._request_executive_approval_happy_path",
+      "status": "fail",
+      "overall_score": 0.6333333333333333,
+      "dimension_scores": [],
+      "turn_evaluations": [
+        {
+          "turn_number": 1,
+          "turn_score": 0.5,
+          "feedback": "Failed: empathy, information_gathering"
+        },
+        {
+          "turn_number": 2,
+          "turn_score": 0.4,
+          "feedback": "Failed: offers_solution, clear_next_steps"
+        },
+        {
+          "turn_number": 3,
+          "turn_score": 1.0,
+          "feedback": "All checkpoints passed"
+        }
+      ],
+      "pass_threshold": 0.7,
+      "feedback": "\u2717 Overall: 0.63 (FAIL)\n\nTurns with Issues:\n  \u2022 Turn 1: Failed: empathy, information_gathering\n  \u2022 Turn 2: Failed: offers_solution, clear_next_steps",
+      "improvement_suggestions": [
+        "Fix 'empathy' - failed in 1 turn(s)",
+        "Fix 'information_gathering' - failed in 1 turn(s)",
+        "Fix 'offers_solution' - failed in 1 turn(s)"
+      ],
+      "metadata": {
+        "total_duration_ms": 172.35422134399414,
+        "num_turns": 3
+      }
+    }
+  ]
+}
