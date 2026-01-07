@@ -1,116 +1,152 @@
-# AgentEval
+# AgentEval - AI Agent Testing Platform
 
-A CLI tool for evaluating conversational AI agents against knowledge bases.
+A local-first tool for testing and evaluating AI agents by analyzing codebases to automatically generate test cases.
+
+## Overview
+
+AgentEval analyzes your application codebase to extract business logic, policies, and validation rules, then automatically generates test cases to evaluate AI agent behavior. Currently focused on **customer service agents** with multi-turn conversation support.
+
+## How It Works
+
+```
+Your Codebase → Extract Business Logic → Generate Test Cases → Run Agent → Evaluate → Report
+```
+
+**Example:** You have a customer service agent for an e-commerce site. AgentEval:
+1. Analyzes your `refund_processor.py` to find refund policies (30-day window, $200 limit, etc.)
+2. Generates test cases like "angry customer wants refund outside window"
+3. Runs your agent against these scenarios
+4. Evaluates using LLM-as-judge (empathy, resolution, policy compliance)
+5. Shows you what passed, what failed, and why
 
 ## Features
 
-- **Automatic Test Generation**: Analyze knowledge bases and generate Q&A test cases using LLM + heuristics
-- **Agent Execution**: Run agents against tests with support for CLI, Python, and HTTP interfaces
-- **Evaluation Framework**: Score responses for factual accuracy, completeness, and consistency
-- **Rich Reporting**: Terminal output with Rich and HTML report generation
-
-## Installation
-
-```bash
-pip install agenteval
-```
-
-Or install from source:
-
-```bash
-git clone https://github.com/agenteval/agenteval.git
-cd agenteval
-pip install -e .
-```
+- **Automated Test Generation**: Analyzes Python codebases to extract testable business logic
+- **Multi-Turn Conversations**: Test dialogues with checkpoint-based evaluation
+- **LLM-as-Judge**: Score subjective qualities (empathy, tone, helpfulness)
+- **Policy Compliance**: Hard checks for business rule violations
+- **Local Execution**: No external services needed (beyond LLM API for evaluation)
 
 ## Quick Start
 
-### 1. Initialize configuration
+### 1. Install
 
 ```bash
-agenteval init
+cd evaluation-cd
+pip install -r requirements.txt
 ```
 
-This creates an `agenteval.yaml` configuration file.
-
-### 2. Generate tests from your knowledge base
+### 2. Analyze Your Codebase
 
 ```bash
-agenteval generate ./knowledge-base --output tests.yaml
+python -m src.cli.main generate \
+  --codebase ./my-cs-agent \
+  --output tests/generated.yaml
 ```
 
-This analyzes your knowledge base documents and generates test cases.
+This extracts business logic and generates test cases.
 
-### 3. Run your agent against the tests
+### 3. Run Tests
 
 ```bash
-agenteval run --agent "python my_agent.py" --tests tests.yaml --kb ./knowledge-base
+python -m src.cli.main run \
+  --tests tests/generated.yaml \
+  --agent "python my_agent.py"
 ```
 
-### 4. View results
+### 4. View Results
 
-```bash
-agenteval report results.json
+```
+✓ handles_refund_within_window    (4.5/5.0, 2.3s)
+✗ angry_customer_de_escalation    (2.8/5.0, 1.9s)
+  - Empathy: 2/5 (didn't acknowledge frustration)
+  - Policy: 5/5 (followed refund rules)
+
+Results: 1/2 passed (50%)
 ```
 
-## Example
+## Project Structure
 
-See the `examples/` folder for a complete working example with:
-- Sample knowledge base (TechGear e-commerce customer service)
-- Sample LLM-based agent
-- Expected test cases
+```
+evaluation-cd/
+├── src/
+│   ├── analyzer/          # Codebase analysis
+│   │   ├── parser.py      # AST parsing
+│   │   ├── extractor.py   # Extract business logic
+│   │   └── scorer.py      # Prioritize test-worthy code
+│   ├── generator/         # Test case generation
+│   │   ├── templates.py   # Test templates
+│   │   └── generator.py   # LLM-assisted generation
+│   ├── runner/            # Test execution
+│   │   └── runner.py      # Orchestrate test runs
+│   ├── evaluator/         # Evaluation engine
+│   │   ├── llm_judge.py   # LLM-based evaluation
+│   │   ├── compliance.py  # Policy checking
+│   │   └── metrics.py     # Scoring
+│   └── cli/               # CLI interface
+│       └── main.py
+├── tests/                 # Unit tests
+└── examples/              # Example agents
+    └── sample_cs_agent/   # Sample customer service agent
+```
 
-```bash
-cd examples/
-agenteval generate ./knowledge-base --output tests.yaml
-agenteval run --agent "python sample_agent/agent.py" --tests tests.yaml
+## Example Test Case
+
+```yaml
+test_case:
+  id: "refund-angry-customer"
+  name: "Angry customer requesting refund for damaged item"
+
+  context:
+    customer_tier: "gold"
+    order_value: 149.99
+    days_since_delivery: 5
+
+  conversation:
+    - turn: 1
+      customer: "This is ridiculous! My headphones are broken!"
+
+      checkpoints:
+        - criterion: "empathy"
+          must: "Acknowledge frustration explicitly"
+        - criterion: "no_blame"
+          must_not: "Blame customer or shipping"
+
+    - turn: 2
+      customer: "Fine. What can you do about it?"
+
+      checkpoints:
+        - criterion: "offers_solution"
+          must: "Offer refund or replacement with timeline"
+        - criterion: "gold_benefits"
+          must: "Mention expedited shipping for gold members"
+
+  evaluation:
+    dimensions:
+      - empathy: weight 0.25
+      - resolution: weight 0.30
+      - policy_compliance: weight 0.25
+      - efficiency: weight 0.20
+    pass_threshold: 4.0/5.0
 ```
 
 ## Configuration
 
-Create an `agenteval.yaml` file:
+Create `.env`:
 
-```yaml
-# LLM settings for test generation and evaluation
-llm:
-  provider: openai  # or anthropic, ollama, etc.
-  model: gpt-4o-mini
-  api_key: ${OPENAI_API_KEY}  # Uses environment variable
-
-# Test generation settings
-generation:
-  count: 30  # Number of tests to generate
-  types:
-    qa: 0.7       # 70% simple Q&A
-    edge: 0.2     # 20% edge cases
-    consistency: 0.1  # 10% consistency tests
-
-# Evaluation settings
-evaluation:
-  weights:
-    factual_accuracy: 0.4
-    completeness: 0.3
-    citation: 0.2
-    tone: 0.1
-  pass_threshold: 0.7
+```bash
+# LLM API for evaluation
+OPENAI_API_KEY=sk-...
+# or
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-## Test Case Format
+## Status
 
-```yaml
-tests:
-  - id: test_001
-    type: qa
-    input:
-      message: "What is your return policy?"
-    expected:
-      contains_facts:
-        - "30-day return window"
-        - "original packaging required"
-      sources: ["policies/returns.md"]
-```
+🚧 **MVP in Development**
+
+Current: Building codebase analyzer and test generator
 
 ## License
 
 MIT
-

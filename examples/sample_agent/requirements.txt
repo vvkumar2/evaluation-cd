@@ -1,3 +1,0 @@
-# Dependencies for the sample agent
-litellm>=1.0.0
-
