@@ -1,0 +1,519 @@
+{
+  "metadata": {
+    "timestamp": 1767763909.17045,
+    "total_tests": 5,
+    "successful": 5,
+    "failed": 0
+  },
+  "results": [
+    {
+      "test_id": "test_RefundProcessor.process_refund_request_raises_ValueError",
+      "test_name": "RefundProcessor.process_refund_request_raises_ValueError",
+      "success": true,
+      "error": null,
+      "total_duration_ms": 64.6982192993164,
+      "turns": [
+        {
+          "turn_number": 1,
+          "customer_message": "Can you help me with Function should raise ValueError under certain conditions?",
+          "agent_response": "Thank you for contacting TechGear customer support. How can I assist you today?",
+          "duration_ms": 64.6982192993164,
+          "error": null,
+          "metadata": {
+            "checkpoints": [
+              {
+                "criterion": "policy_enforcement",
+                "check_type": "must",
+                "description": "Does not grant request that violates general_policy",
+                "weight": 0.5
+              },
+              {
+                "criterion": "explanation",
+                "check_type": "must",
+                "description": "Explains the policy reason clearly",
+                "weight": 0.3
+              },
+              {
+                "criterion": "alternative_offered",
+                "check_type": "should",
+                "description": "Offers alternative solution if possible",
+                "weight": 0.2
+              }
+            ],
+            "expected_actions": []
+          }
+        }
+      ],
+      "context": {
+        "conversation_name": "policy_violation_general_policy",
+        "scenario_type": "error_path",
+        "evaluation_dimensions": {
+          "policy_compliance": 0.5,
+          "empathy": 0.2,
+          "helpfulness": 0.3
+        },
+        "pass_threshold": 0.8
+      }
+    },
+    {
+      "test_id": "test_RefundProcessor.__init___happy_path",
+      "test_name": "RefundProcessor.__init___happy_path",
+      "success": true,
+      "error": null,
+      "total_duration_ms": 176.82695388793945,
+      "turns": [
+        {
+          "turn_number": 1,
+          "customer_message": "I want to return my product. It doesn't work as expected.",
+          "agent_response": "I can help you with that. I can absolutely help with a refund. Since you're within our 30-day return window, you're eligible for a full refund of $99.99. I've initiated the refund, and you should see it in 3-5 business days. Is there anything else I can help you with?",
+          "duration_ms": 58.91823768615723,
+          "error": null,
+          "metadata": {
+            "checkpoints": [
+              {
+                "criterion": "empathy",
+                "check_type": "must",
+                "description": "Acknowledges customer's issue",
+                "weight": 0.2
+              },
+              {
+                "criterion": "information_gathering",
+                "check_type": "must",
+                "description": "Asks about order details or offers to look it up",
+                "weight": 0.3
+              },
+              {
+                "criterion": "no_immediate_refusal",
+                "check_type": "must_not",
+                "description": "Does not refuse without understanding the issue",
+                "weight": 0.5
+              }
+            ],
+            "expected_actions": []
+          }
+        },
+        {
+          "turn_number": 2,
+          "customer_message": "My order number is ORD-12345. I got it last week.",
+          "agent_response": "Let me check on that for you. Your order ORD-12345 is currently shipped.  It should arrive within 2-3 business days. Let me know if you need anything else!",
+          "duration_ms": 59.36789512634277,
+          "error": null,
+          "metadata": {
+            "checkpoints": [
+              {
+                "criterion": "policy_check",
+                "check_type": "must",
+                "description": "Verifies refund eligibility (within window)",
+                "weight": 0.4
+              },
+              {
+                "criterion": "offers_solution",
+                "check_type": "must",
+                "description": "Offers refund or replacement options",
+                "weight": 0.4
+              },
+              {
+                "criterion": "clear_next_steps",
+                "check_type": "must",
+                "description": "Explains what will happen next",
+                "weight": 0.2
+              }
+            ],
+            "expected_actions": [
+              "verify_order",
+              "check_refund_eligibility"
+            ]
+          }
+        },
+        {
+          "turn_number": 3,
+          "customer_message": "Okay, I'll take the refund. How long will it take?",
+          "agent_response": "I can help you with that. I can absolutely help with a refund. Since you're within our 30-day return window, you're eligible for a full refund of $99.99. I've initiated the refund, and you should see it in 3-5 business days. Is there anything else I can help you with?",
+          "duration_ms": 58.54082107543945,
+          "error": null,
+          "metadata": {
+            "checkpoints": [
+              {
+                "criterion": "timeline_provided",
+                "check_type": "must",
+                "description": "Gives specific timeline for refund processing",
+                "weight": 0.3
+              },
+              {
+                "criterion": "confirmation",
+                "check_type": "must",
+                "description": "Confirms refund has been initiated",
+                "weight": 0.5
+              },
+              {
+                "criterion": "professional_close",
+                "check_type": "should",
+                "description": "Ends conversation professionally",
+                "weight": 0.2
+              }
+            ],
+            "expected_actions": [
+              "initiate_refund"
+            ]
+          }
+        }
+      ],
+      "context": {
+        "conversation_name": "refund_request_standard",
+        "scenario_type": "happy_path",
+        "evaluation_dimensions": {
+          "empathy": 0.2,
+          "resolution": 0.35,
+          "policy_compliance": 0.25,
+          "efficiency": 0.2
+        },
+        "pass_threshold": 0.7
+      }
+    },
+    {
+      "test_id": "test_RefundProcessor._approve_refund_happy_path",
+      "test_name": "RefundProcessor._approve_refund_happy_path",
+      "success": true,
+      "error": null,
+      "total_duration_ms": 177.33073234558105,
+      "turns": [
+        {
+          "turn_number": 1,
+          "customer_message": "I want to return my product. It doesn't work as expected.",
+          "agent_response": "I can help you with that. I can absolutely help with a refund. Since you're within our 30-day return window, you're eligible for a full refund of $99.99. I've initiated the refund, and you should see it in 3-5 business days. Is there anything else I can help you with?",
+          "duration_ms": 56.9920539855957,
+          "error": null,
+          "metadata": {
+            "checkpoints": [
+              {
+                "criterion": "empathy",
+                "check_type": "must",
+                "description": "Acknowledges customer's issue",
+                "weight": 0.2
+              },
+              {
+                "criterion": "information_gathering",
+                "check_type": "must",
+                "description": "Asks about order details or offers to look it up",
+                "weight": 0.3
+              },
+              {
+                "criterion": "no_immediate_refusal",
+                "check_type": "must_not",
+                "description": "Does not refuse without understanding the issue",
+                "weight": 0.5
+              }
+            ],
+            "expected_actions": []
+          }
+        },
+        {
+          "turn_number": 2,
+          "customer_message": "My order number is ORD-12345. I got it last week.",
+          "agent_response": "Let me check on that for you. Your order ORD-12345 is currently shipped.  It should arrive within 2-3 business days. Let me know if you need anything else!",
+          "duration_ms": 58.93087387084961,
+          "error": null,
+          "metadata": {
+            "checkpoints": [
+              {
+                "criterion": "policy_check",
+                "check_type": "must",
+                "description": "Verifies refund eligibility (within window)",
+                "weight": 0.4
+              },
+              {
+                "criterion": "offers_solution",
+                "check_type": "must",
+                "description": "Offers refund or replacement options",
+                "weight": 0.4
+              },
+              {
+                "criterion": "clear_next_steps",
+                "check_type": "must",
+                "description": "Explains what will happen next",
+                "weight": 0.2
+              }
+            ],
+            "expected_actions": [
+              "verify_order",
+              "check_refund_eligibility"
+            ]
+          }
+        },
+        {
+          "turn_number": 3,
+          "customer_message": "Okay, I'll take the refund. How long will it take?",
+          "agent_response": "I can help you with that. I can absolutely help with a refund. Since you're within our 30-day return window, you're eligible for a full refund of $99.99. I've initiated the refund, and you should see it in 3-5 business days. Is there anything else I can help you with?",
+          "duration_ms": 61.40780448913574,
+          "error": null,
+          "metadata": {
+            "checkpoints": [
+              {
+                "criterion": "timeline_provided",
+                "check_type": "must",
+                "description": "Gives specific timeline for refund processing",
+                "weight": 0.3
+              },
+              {
+                "criterion": "confirmation",
+                "check_type": "must",
+                "description": "Confirms refund has been initiated",
+                "weight": 0.5
+              },
+              {
+                "criterion": "professional_close",
+                "check_type": "should",
+                "description": "Ends conversation professionally",
+                "weight": 0.2
+              }
+            ],
+            "expected_actions": [
+              "initiate_refund"
+            ]
+          }
+        }
+      ],
+      "context": {
+        "conversation_name": "refund_request_standard",
+        "scenario_type": "happy_path",
+        "evaluation_dimensions": {
+          "empathy": 0.2,
+          "resolution": 0.35,
+          "policy_compliance": 0.25,
+          "efficiency": 0.2
+        },
+        "pass_threshold": 0.7
+      }
+    },
+    {
+      "test_id": "test_RefundProcessor._request_manager_approval_happy_path",
+      "test_name": "RefundProcessor._request_manager_approval_happy_path",
+      "success": true,
+      "error": null,
+      "total_duration_ms": 173.37393760681152,
+      "turns": [
+        {
+          "turn_number": 1,
+          "customer_message": "I want to return my product. It doesn't work as expected.",
+          "agent_response": "I can help you with that. I can absolutely help with a refund. Since you're within our 30-day return window, you're eligible for a full refund of $99.99. I've initiated the refund, and you should see it in 3-5 business days. Is there anything else I can help you with?",
+          "duration_ms": 59.6621036529541,
+          "error": null,
+          "metadata": {
+            "checkpoints": [
+              {
+                "criterion": "empathy",
+                "check_type": "must",
+                "description": "Acknowledges customer's issue",
+                "weight": 0.2
+              },
+              {
+                "criterion": "information_gathering",
+                "check_type": "must",
+                "description": "Asks about order details or offers to look it up",
+                "weight": 0.3
+              },
+              {
+                "criterion": "no_immediate_refusal",
+                "check_type": "must_not",
+                "description": "Does not refuse without understanding the issue",
+                "weight": 0.5
+              }
+            ],
+            "expected_actions": []
+          }
+        },
+        {
+          "turn_number": 2,
+          "customer_message": "My order number is ORD-12345. I got it last week.",
+          "agent_response": "Let me check on that for you. Your order ORD-12345 is currently shipped.  It should arrive within 2-3 business days. Let me know if you need anything else!",
+          "duration_ms": 55.374860763549805,
+          "error": null,
+          "metadata": {
+            "checkpoints": [
+              {
+                "criterion": "policy_check",
+                "check_type": "must",
+                "description": "Verifies refund eligibility (within window)",
+                "weight": 0.4
+              },
+              {
+                "criterion": "offers_solution",
+                "check_type": "must",
+                "description": "Offers refund or replacement options",
+                "weight": 0.4
+              },
+              {
+                "criterion": "clear_next_steps",
+                "check_type": "must",
+                "description": "Explains what will happen next",
+                "weight": 0.2
+              }
+            ],
+            "expected_actions": [
+              "verify_order",
+              "check_refund_eligibility"
+            ]
+          }
+        },
+        {
+          "turn_number": 3,
+          "customer_message": "Okay, I'll take the refund. How long will it take?",
+          "agent_response": "I can help you with that. I can absolutely help with a refund. Since you're within our 30-day return window, you're eligible for a full refund of $99.99. I've initiated the refund, and you should see it in 3-5 business days. Is there anything else I can help you with?",
+          "duration_ms": 58.33697319030762,
+          "error": null,
+          "metadata": {
+            "checkpoints": [
+              {
+                "criterion": "timeline_provided",
+                "check_type": "must",
+                "description": "Gives specific timeline for refund processing",
+                "weight": 0.3
+              },
+              {
+                "criterion": "confirmation",
+                "check_type": "must",
+                "description": "Confirms refund has been initiated",
+                "weight": 0.5
+              },
+              {
+                "criterion": "professional_close",
+                "check_type": "should",
+                "description": "Ends conversation professionally",
+                "weight": 0.2
+              }
+            ],
+            "expected_actions": [
+              "initiate_refund"
+            ]
+          }
+        }
+      ],
+      "context": {
+        "conversation_name": "refund_request_standard",
+        "scenario_type": "happy_path",
+        "evaluation_dimensions": {
+          "empathy": 0.2,
+          "resolution": 0.35,
+          "policy_compliance": 0.25,
+          "efficiency": 0.2
+        },
+        "pass_threshold": 0.7
+      }
+    },
+    {
+      "test_id": "test_RefundProcessor._request_executive_approval_happy_path",
+      "test_name": "RefundProcessor._request_executive_approval_happy_path",
+      "success": true,
+      "error": null,
+      "total_duration_ms": 172.35422134399414,
+      "turns": [
+        {
+          "turn_number": 1,
+          "customer_message": "I want to return my product. It doesn't work as expected.",
+          "agent_response": "I can help you with that. I can absolutely help with a refund. Since you're within our 30-day return window, you're eligible for a full refund of $99.99. I've initiated the refund, and you should see it in 3-5 business days. Is there anything else I can help you with?",
+          "duration_ms": 57.68299102783203,
+          "error": null,
+          "metadata": {
+            "checkpoints": [
+              {
+                "criterion": "empathy",
+                "check_type": "must",
+                "description": "Acknowledges customer's issue",
+                "weight": 0.2
+              },
+              {
+                "criterion": "information_gathering",
+                "check_type": "must",
+                "description": "Asks about order details or offers to look it up",
+                "weight": 0.3
+              },
+              {
+                "criterion": "no_immediate_refusal",
+                "check_type": "must_not",
+                "description": "Does not refuse without understanding the issue",
+                "weight": 0.5
+              }
+            ],
+            "expected_actions": []
+          }
+        },
+        {
+          "turn_number": 2,
+          "customer_message": "My order number is ORD-12345. I got it last week.",
+          "agent_response": "Let me check on that for you. Your order ORD-12345 is currently shipped.  It should arrive within 2-3 business days. Let me know if you need anything else!",
+          "duration_ms": 58.73823165893555,
+          "error": null,
+          "metadata": {
+            "checkpoints": [
+              {
+                "criterion": "policy_check",
+                "check_type": "must",
+                "description": "Verifies refund eligibility (within window)",
+                "weight": 0.4
+              },
+              {
+                "criterion": "offers_solution",
+                "check_type": "must",
+                "description": "Offers refund or replacement options",
+                "weight": 0.4
+              },
+              {
+                "criterion": "clear_next_steps",
+                "check_type": "must",
+                "description": "Explains what will happen next",
+                "weight": 0.2
+              }
+            ],
+            "expected_actions": [
+              "verify_order",
+              "check_refund_eligibility"
+            ]
+          }
+        },
+        {
+          "turn_number": 3,
+          "customer_message": "Okay, I'll take the refund. How long will it take?",
+          "agent_response": "I can help you with that. I can absolutely help with a refund. Since you're within our 30-day return window, you're eligible for a full refund of $99.99. I've initiated the refund, and you should see it in 3-5 business days. Is there anything else I can help you with?",
+          "duration_ms": 55.93299865722656,
+          "error": null,
+          "metadata": {
+            "checkpoints": [
+              {
+                "criterion": "timeline_provided",
+                "check_type": "must",
+                "description": "Gives specific timeline for refund processing",
+                "weight": 0.3
+              },
+              {
+                "criterion": "confirmation",
+                "check_type": "must",
+                "description": "Confirms refund has been initiated",
+                "weight": 0.5
+              },
+              {
+                "criterion": "professional_close",
+                "check_type": "should",
+                "description": "Ends conversation professionally",
+                "weight": 0.2
+              }
+            ],
+            "expected_actions": [
+              "initiate_refund"
+            ]
+          }
+        }
+      ],
+      "context": {
+        "conversation_name": "refund_request_standard",
+        "scenario_type": "happy_path",
+        "evaluation_dimensions": {
+          "empathy": 0.2,
+          "resolution": 0.35,
+          "policy_compliance": 0.25,
+          "efficiency": 0.2
+        },
+        "pass_threshold": 0.7
+      }
+    }
+  ]
+}
