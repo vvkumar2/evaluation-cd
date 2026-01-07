@@ -34,35 +34,84 @@ Your Codebase → Extract Business Logic → Generate Test Cases → Run Agent �
 ```bash
 cd evaluation-cd
 pip install -r requirements.txt
+
+# Copy environment file and add your API keys
+cp .env.example .env
+# Edit .env and add your OPENAI_API_KEY or ANTHROPIC_API_KEY
 ```
 
-### 2. Analyze Your Codebase
+### 2. Option A: Full Pipeline (Easiest)
 
+Run everything in one command:
+
+```bash
+python -m src.cli.main full \
+  --codebase ./my-cs-agent \
+  --agent "python my_agent.py" \
+  --max-tests 10
+```
+
+This will:
+1. Analyze your codebase
+2. Generate test cases
+3. Run tests against your agent
+4. Evaluate with LLM-as-judge
+5. Show results
+
+### 2. Option B: Step-by-Step
+
+**Generate test cases:**
 ```bash
 python -m src.cli.main generate \
   --codebase ./my-cs-agent \
-  --output tests/generated.yaml
+  --output tests/generated.yaml \
+  --max-tests 20
 ```
 
-This extracts business logic and generates test cases.
-
-### 3. Run Tests
-
+**Run tests:**
 ```bash
 python -m src.cli.main run \
   --tests tests/generated.yaml \
-  --agent "python my_agent.py"
+  --agent "python my_agent.py" \
+  --output results/execution.json
 ```
 
-### 4. View Results
+**Evaluate results:**
+```bash
+python -m src.cli.main evaluate \
+  --results results/execution.json \
+  --output results/evaluation.json \
+  --use-llm
+```
+
+**View report:**
+```bash
+python -m src.cli.main report \
+  --results results/evaluation.json \
+  --format detailed
+```
+
+### 3. Example Output
 
 ```
-✓ handles_refund_within_window    (4.5/5.0, 2.3s)
-✗ angry_customer_de_escalation    (2.8/5.0, 1.9s)
-  - Empathy: 2/5 (didn't acknowledge frustration)
-  - Policy: 5/5 (followed refund rules)
+AgentEval Results
+════════════════════════════════════════════════════════════════════
 
-Results: 1/2 passed (50%)
+┌─ Summary ──────────────────────────────────────────────────────┐
+│ Passed: 7/10 (70.0%)                                            │
+│ Failed: 3                                                       │
+│ Errors: 0                                                       │
+│ LLM Used: True                                                  │
+└─────────────────────────────────────────────────────────────────┘
+
+                          Test Results
+┌──────────────────────────────┬────────┬───────┬───────────┐
+│ Test                         │ Status │ Score │ Threshold │
+├──────────────────────────────┼────────┼───────┼───────────┤
+│ refund_request_gold          │ ✓ PASS │  0.82 │      0.70 │
+│ angry_customer_broken_produc │ ✗ FAIL │  0.65 │      0.70 │
+│ policy_violation_refund_wind │ ✓ PASS │  0.91 │      0.80 │
+└──────────────────────────────┴────────┴───────┴───────────┘
 ```
 
 ## Project Structure
