@@ -1,8 +1,10 @@
 # General
+.claude/
+.env
+pyproject.toml
+venv/
 *__pycache__/
 build/
-venv/
-.claude/
 
 # Testing
 tests/
