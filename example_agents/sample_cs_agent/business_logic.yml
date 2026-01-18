@@ -1,0 +1,16 @@
+agent:
+  name: TechGear Customer Service Agent
+  description: Handle customer inquiries for refunds, shipping, and order management
+  capabilities:
+    - name: Process Refund Request
+      domain: refunds
+      entry_function: process_refund_request
+      description: Handle customer refund requests based on tier, timing, and item condition
+    - name: Calculate Shipping Cost
+      domain: shipping
+      entry_function: get_shipping_cost
+      description: Calculate shipping cost based on order value, tier, and speed
+    - name: Cancel Order
+      domain: orders
+      entry_function: can_cancel_order
+      description: Determine if an order can be cancelled based on current status
