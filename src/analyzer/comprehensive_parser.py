@@ -2,6 +2,7 @@
 Comprehensive parser for understanding agent capabilities from a codebase and business logic.
 """ 
 import ast
+import yaml
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
@@ -111,8 +112,6 @@ class ComprehensiveParser:
         Returns:
             (description, list of capability dicts)
         """
-        import yaml
-
         with open(file_path, 'r') as f:
             data = yaml.safe_load(f)
 

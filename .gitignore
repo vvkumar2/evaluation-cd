@@ -1,6 +1,6 @@
 # General
 .claude/
-.env
+*.env
 pyproject.toml
 venv/
 *__pycache__/
