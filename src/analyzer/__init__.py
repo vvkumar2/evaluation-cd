@@ -1,7 +1,6 @@
 """Codebase analysis module for extracting testable business logic."""
 
-from .parser import CodeParser
-from .extractor import BusinessLogicExtractor
-from .scorer import TestPriorityScorer
+from .comprehensive_parser import ComprehensiveParser, AgentCapabilities, WorkflowPath, Capability
+from .path_tracer import PathTracer, ExecutionPath
 
-__all__ = ['CodeParser', 'BusinessLogicExtractor', 'TestPriorityScorer']
+__all__ = ['ComprehensiveParser', 'AgentCapabilities', 'WorkflowPath', 'Capability', 'PathTracer', 'ExecutionPath']

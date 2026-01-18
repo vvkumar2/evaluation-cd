@@ -1,0 +1,8 @@
+# General
+__pycache__/
+build/
+venv/
+.claude/
+
+# Testing
+tests/
