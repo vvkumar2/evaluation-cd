@@ -103,7 +103,9 @@ class OrderManager:
         Returns:
             True if order can be cancelled, False otherwise
         """
-        return order_status in [OrderStatus.PENDING, OrderStatus.PROCESSING]
+        if order_status in [OrderStatus.PENDING, OrderStatus.PROCESSING]:
+            return True
+        return False
 
     def can_modify_order(self, order_status: OrderStatus) -> bool:
         """

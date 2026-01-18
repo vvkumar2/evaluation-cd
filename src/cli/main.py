@@ -80,11 +80,13 @@ def parse(codebase, business_logic, output):
     # Summary
     console.print("\n[bold green]✓ Parsing Complete[/bold green]\n")
 
+    total_paths = sum(len(w.paths) for w in capabilities.workflows)
+
     summary_table = Table(title="Extracted Capabilities")
     summary_table.add_column("Component", style="cyan")
     summary_table.add_column("Count", justify="right", style="magenta")
-    summary_table.add_row("Capabilities", str(len(capabilities.capabilities)))
-    summary_table.add_row("Workflow Paths", str(len(capabilities.workflow_paths)))
+    summary_table.add_row("Workflows", str(len(capabilities.workflows)))
+    summary_table.add_row("Total Paths", str(total_paths))
     summary_table.add_row("Constants", str(len(capabilities.constants)))
 
     console.print(summary_table)

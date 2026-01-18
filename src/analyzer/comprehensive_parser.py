@@ -1,55 +1,38 @@
 """
-Comprehensive parser for understanding agent capabilities.
-
-Combines:
-1. Business logic YAML (user-defined capabilities)
-2. Codebase analysis (implementation and workflow paths)
-
-Extracts:
-- Agent description
-- Workflow paths (end-to-end execution flows)
-- Constants
-"""
-
+Comprehensive parser for understanding agent capabilities from a codebase and business logic.
+""" 
 import ast
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
-import json
-
 from .path_tracer import extract_all_paths
 
-
 @dataclass
-class WorkflowPath:
-    """A complete end-to-end workflow path through a capability."""
-    capability_name: str
+class ExecutionPath:
+    """A single execution path."""
     path_id: str
-    entry_function: str
-    conditions: List[str]  # Conditions across entire workflow
-    function_calls: List[str]  # Sequence of functions called
+    conditions: List[str]
     return_value: Optional[str] = None
     raises_exception: Optional[str] = None
     is_error_path: bool = False
-    description: str = ""
 
 
 @dataclass
-class Capability:
-    """A user-facing capability of the agent."""
-    name: str
+class CapabilityWorkflow:
+    """All execution paths for a specific capability."""
+    capability_name: str
     domain: str
     entry_function: str
     description: str
+    paths: List[ExecutionPath] = field(default_factory=list)
 
 
 @dataclass
 class AgentCapabilities:
-    """Complete understanding of agent capabilities."""
+    """All capabilities of the agent."""
     description: str
-    workflow_paths: List[WorkflowPath]
+    workflows: List[CapabilityWorkflow]
     constants: Dict[str, Any]
-    capabilities: List[Capability] = field(default_factory=list)
 
 
 class ComprehensiveParser:
@@ -78,7 +61,7 @@ class ComprehensiveParser:
         capabilities = []
 
         if business_logic_path and business_logic_path.exists():
-            agent_description, capabilities = self._parse_business_logic_yaml(business_logic_path)
+            agent_description, capabilities_list = self._parse_business_logic_yaml(business_logic_path)
 
         # Parse codebase to extract function implementations
         all_functions = {}  # function_name -> AST node
@@ -96,17 +79,24 @@ class ComprehensiveParser:
                     all_functions.update(funcs)
                     constants.update(consts)
 
-        # Trace workflow paths for each capability
-        workflow_paths = []
-        for capability in capabilities:
-            paths = self._trace_workflow_paths(capability, all_functions)
-            workflow_paths.extend(paths)
+        # Build workflows for each capability
+        workflows = []
+        for cap_data in capabilities_list:
+            execution_paths = self._trace_execution_paths(cap_data, all_functions)
+
+            workflow = CapabilityWorkflow(
+                capability_name=cap_data['name'],
+                domain=cap_data['domain'],
+                entry_function=cap_data['entry_function'],
+                description=cap_data['description'],
+                paths=execution_paths
+            )
+            workflows.append(workflow)
 
         self.capabilities = AgentCapabilities(
             description=agent_description,
-            workflow_paths=workflow_paths,
-            constants=constants,
-            capabilities=capabilities
+            workflows=workflows,
+            constants=constants
         )
 
         return self.capabilities
@@ -114,12 +104,12 @@ class ComprehensiveParser:
     def _parse_business_logic_yaml(
         self,
         file_path: Path
-    ) -> Tuple[str, List[Capability]]:
+    ) -> Tuple[str, List[Dict[str, str]]]:
         """
         Parse business_logic.yaml to extract agent description and capabilities.
 
         Returns:
-            (description, capabilities)
+            (description, list of capability dicts)
         """
         import yaml
 
@@ -131,12 +121,12 @@ class ComprehensiveParser:
 
         capabilities = []
         for cap_data in agent_data.get('capabilities', []):
-            capabilities.append(Capability(
-                name=cap_data['name'],
-                domain=cap_data['domain'],
-                entry_function=cap_data['entry_function'],
-                description=cap_data['description']
-            ))
+            capabilities.append({
+                'name': cap_data['name'],
+                'domain': cap_data['domain'],
+                'entry_function': cap_data['entry_function'],
+                'description': cap_data['description']
+            })
 
         return description, capabilities
 
@@ -169,6 +159,16 @@ class ComprehensiveParser:
                         if target.id.isupper():  # Constant naming convention
                             try:
                                 value = ast.literal_eval(node.value)
+
+                                # Filter out enum-like constants where value is just lowercase of key
+                                if isinstance(value, str):
+                                    # Skip if value is just the key in lowercase or with underscores replaced
+                                    if value == target.id.lower() or value == target.id.lower().replace('_', ''):
+                                        continue
+                                    # Skip if key is just uppercase of value
+                                    if target.id == value.upper() or target.id == value.upper().replace(' ', '_'):
+                                        continue
+
                                 constants[target.id] = value
                             except (ValueError, TypeError):
                                 pass
@@ -180,22 +180,25 @@ class ComprehensiveParser:
 
         return functions, constants
 
-    def _trace_workflow_paths(
+    def _trace_execution_paths(
         self,
-        capability: Capability,
+        capability_data: Dict[str, str],
         all_functions: Dict[str, ast.FunctionDef]
-    ) -> List[WorkflowPath]:
+    ) -> List[ExecutionPath]:
         """
-        Trace all workflow paths for a capability starting from its entry function.
+        Trace all execution paths for a capability starting from its entry function.
 
         Args:
-            capability: The capability to trace
+            capability_data: Dict with capability info (name, domain, entry_function, description)
             all_functions: Dict of function_name -> AST node
 
         Returns:
-            List of workflow paths
+            List of execution paths
         """
-        entry_func_name = capability.entry_function
+        entry_func_name = capability_data['entry_function']
+        domain = capability_data['domain']
+        capability_name = capability_data['name']
+        capability_description = capability_data['description']
 
         if entry_func_name not in all_functions:
             return []
@@ -205,7 +208,7 @@ class ComprehensiveParser:
         # Extract all code paths through the entry function
         exec_paths = extract_all_paths(entry_func_node)
 
-        workflow_paths = []
+        execution_paths = []
         for i, exec_path in enumerate(exec_paths):
             # Combine conditions
             all_conditions = []
@@ -214,23 +217,15 @@ class ComprehensiveParser:
             for cond in exec_path.negated_conditions:
                 all_conditions.append(f"NOT: {cond}")
 
-            # Extract function calls made in this path
-            function_calls = [entry_func_name]
-            function_calls.extend(exec_path.calls_functions)
-
-            workflow_paths.append(WorkflowPath(
-                capability_name=capability.name,
-                path_id=f"{capability.domain}_{entry_func_name}_path_{i+1}",
-                entry_function=entry_func_name,
+            execution_paths.append(ExecutionPath(
+                path_id=f"{domain}_{entry_func_name}_path_{i+1}",
                 conditions=all_conditions,
-                function_calls=function_calls,
                 return_value=exec_path.return_value,
                 raises_exception=exec_path.raises_exception,
-                is_error_path=exec_path.is_error_path,
-                description=f"{capability.name} - {exec_path.return_value or exec_path.raises_exception or 'execution'}"
+                is_error_path=exec_path.is_error_path
             ))
 
-        return workflow_paths
+        return execution_paths
 
     def export_to_dict(self) -> Dict[str, Any]:
         """Export capabilities to dictionary format."""
@@ -239,48 +234,24 @@ class ComprehensiveParser:
 
         return {
             'description': self.capabilities.description,
-            'capabilities': [
+            'workflows': [
                 {
-                    'name': cap.name,
-                    'domain': cap.domain,
-                    'entry_function': cap.entry_function,
-                    'description': cap.description
+                    'capability_name': workflow.capability_name,
+                    'domain': workflow.domain,
+                    'entry_function': workflow.entry_function,
+                    'description': workflow.description,
+                    'paths': [
+                        {
+                            'path_id': path.path_id,
+                            'conditions': path.conditions,
+                            'return_value': path.return_value,
+                            'raises': path.raises_exception,
+                            'is_error_path': path.is_error_path
+                        }
+                        for path in workflow.paths
+                    ]
                 }
-                for cap in self.capabilities.capabilities
-            ],
-            'workflow_paths': [
-                {
-                    'capability_name': path.capability_name,
-                    'path_id': path.path_id,
-                    'entry_function': path.entry_function,
-                    'conditions': path.conditions,
-                    'function_calls': path.function_calls,
-                    'return_value': path.return_value,
-                    'raises': path.raises_exception,
-                    'is_error_path': path.is_error_path,
-                    'description': path.description
-                }
-                for path in self.capabilities.workflow_paths
+                for workflow in self.capabilities.workflows
             ],
             'constants': self.capabilities.constants
         }
-
-
-if __name__ == '__main__':
-    # Test with sample CS agent
-    parser = ComprehensiveParser()
-
-    codebase = Path('example_agents/sample_cs_agent/business_logic')
-    business_logic = Path('example_agents/sample_cs_agent/business_logic.yml')
-
-    capabilities = parser.parse(codebase, business_logic)
-
-    print(f"Extracted Capabilities:")
-    print(f"  Agent: {capabilities.description}")
-    print(f"  Capabilities: {len(capabilities.capabilities)}")
-    print(f"  Workflow Paths: {len(capabilities.workflow_paths)}")
-    print(f"  Constants: {len(capabilities.constants)}")
-
-    # Export to JSON
-    output = parser.export_to_dict()
-    print(f"\n{json.dumps(output, indent=2)}")
