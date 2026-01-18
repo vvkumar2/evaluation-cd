@@ -1,23 +1,19 @@
 """
 Code path tracer for extracting all possible execution paths through functions.
-
-Traces through if/elif/else branches to find all possible paths
-from function entry to exit, tracking conditions along the way.
 """
 
 import ast
 from dataclasses import dataclass, field
-from typing import List, Optional, Set, Tuple
-
+from typing import List, Optional
 
 @dataclass
-class ExecutionPath:
+class DetailedExecutionPath:
     """A complete execution path through a function."""
     function_name: str
     path_number: int
-    conditions: List[str]  # Conditions that must be true for this path
-    negated_conditions: List[str]  # Conditions that must be false
-    actions: List[str]  # Operations performed in this path
+    conditions: List[str]
+    negated_conditions: List[str]
+    actions: List[str]
     return_value: Optional[str] = None
     raises_exception: Optional[str] = None
     calls_functions: List[str] = field(default_factory=list)
@@ -31,7 +27,7 @@ class PathTracer:
     def __init__(self):
         self.paths = []
 
-    def trace_function(self, func_node: ast.FunctionDef) -> List[ExecutionPath]:
+    def trace_function(self, func_node: ast.FunctionDef) -> List[DetailedExecutionPath]:
         """
         Trace all execution paths through a function.
 
@@ -92,7 +88,7 @@ class PathTracer:
                     return_val = ast.unparse(stmt.value)
 
                 self.path_counter += 1
-                self.paths.append(ExecutionPath(
+                self.paths.append(DetailedExecutionPath(
                     function_name=func_name,
                     path_number=self.path_counter,
                     conditions=conditions.copy(),
@@ -114,7 +110,7 @@ class PathTracer:
                         exception = ast.unparse(stmt.exc)
 
                 self.path_counter += 1
-                self.paths.append(ExecutionPath(
+                self.paths.append(DetailedExecutionPath(
                     function_name=func_name,
                     path_number=self.path_counter,
                     conditions=conditions.copy(),
@@ -142,7 +138,7 @@ class PathTracer:
 
         # If we get here without return/raise, it's an implicit return None
         self.path_counter += 1
-        self.paths.append(ExecutionPath(
+        self.paths.append(DetailedExecutionPath(
             function_name=func_name,
             path_number=self.path_counter,
             conditions=conditions,
@@ -235,7 +231,7 @@ class PathTracer:
         return None
 
 
-def extract_all_paths(func_node: ast.FunctionDef) -> List[ExecutionPath]:
+def extract_all_paths(func_node: ast.FunctionDef) -> List[DetailedExecutionPath]:
     """
     Extract all execution paths from a function.
 
@@ -247,41 +243,3 @@ def extract_all_paths(func_node: ast.FunctionDef) -> List[ExecutionPath]:
     """
     tracer = PathTracer()
     return tracer.trace_function(func_node)
-
-
-if __name__ == '__main__':
-    # Test with a sample function
-    source = """
-def process_refund(order_total, days_since_delivery, is_damaged):
-    if order_total < 0:
-        raise ValueError("Negative amount")
-
-    if is_damaged:
-        return "approved"
-
-    if days_since_delivery <= 30:
-        if order_total <= 200:
-            return "auto_approved"
-        else:
-            return "needs_manager_approval"
-    else:
-        return "denied"
-"""
-
-    tree = ast.parse(source)
-    func = tree.body[0]
-
-    paths = extract_all_paths(func)
-
-    print(f"Found {len(paths)} execution paths:\n")
-    for path in paths:
-        print(f"Path {path.path_number}:")
-        if path.conditions:
-            print(f"  Conditions: {', '.join(path.conditions)}")
-        if path.negated_conditions:
-            print(f"  NOT: {', '.join(path.negated_conditions)}")
-        if path.return_value:
-            print(f"  Returns: {path.return_value}")
-        if path.raises_exception:
-            print(f"  Raises: {path.raises_exception}")
-        print()
