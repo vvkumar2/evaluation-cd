@@ -8,19 +8,8 @@ responds with appropriate customer service reply.
 
 import json
 import sys
-import os
-
-# Add business logic to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'business_logic'))
-
-from refund_processor import (
-    RefundProcessor,
-    CustomerTier,
-    RefundStatus,
-    GOLD_REFUND_WINDOW_DAYS,
-    STANDARD_REFUND_WINDOW_DAYS
-)
-from order_manager import OrderManager, OrderStatus, ShippingSpeed
+from business_logic.refund_processor import RefundProcessor, CustomerTier
+from business_logic.order_manager import OrderManager, OrderStatus
 
 
 class CustomerServiceAgent:
