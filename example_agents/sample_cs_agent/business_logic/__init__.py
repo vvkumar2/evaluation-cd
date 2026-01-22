@@ -1,1 +1,0 @@
-"""TechGear business logic modules."""

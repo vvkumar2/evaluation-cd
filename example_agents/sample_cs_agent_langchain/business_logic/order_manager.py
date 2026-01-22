@@ -5,7 +5,6 @@ Handles order tracking, updates, and customer inquiries.
 """
 
 from enum import Enum
-from typing import Optional
 
 
 class OrderStatus(Enum):
