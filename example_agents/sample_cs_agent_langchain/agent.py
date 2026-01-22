@@ -11,13 +11,12 @@ Reads JSON from stdin, processes with LangChain agent, outputs text response.
 import json
 import sys
 import os
-from typing import Any
-
+from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
 from tools import get_tools
+
+load_dotenv()
 
 
 # System prompt that guides the agent's behavior
@@ -53,60 +52,35 @@ Be concise but thorough in your responses. Help resolve customer issues while pr
 """
 
 
-def create_agent():
-    """
-    Create and configure the LangChain agent.
-
-    Returns:
-        AgentExecutor: Configured agent ready to process messages
-    """
-    # Initialize the LLM
-    llm = ChatOpenAI(
-        model="gpt-4o",
-        temperature=0.7,
-        api_key=os.getenv("OPENAI_API_KEY"),
-    )
-
-    # Get available tools
-    tools = get_tools()
-
-    # Create the prompt template
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", SYSTEM_PROMPT),
-            ("user", "{input}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad"),
-        ]
-    )
-
-    # Create the agent
-    agent = create_tool_calling_agent(llm, tools, prompt)
-
-    # Create the executor
-    executor = AgentExecutor(
-        agent=agent,
-        tools=tools,
-        verbose=False,
-        max_iterations=10,
-        handle_parsing_errors=True,
-    )
-
-    return executor
-
-
-def handle_message(message: str, context: dict = None, history: list = None) -> str:
+def handle_message(message: str, context: dict = None) -> str:
     """
     Process a customer message and return the agent's response.
 
     Args:
         message: The customer's message
         context: Optional context dict containing customer_id (e.g., {"customer_id": "CUST-001"})
-        history: Optional conversation history (not used in single-turn)
 
     Returns:
         The agent's response as a string
     """
-    agent = create_agent()
+    if context is None:
+        context = {}
+
+    # Initialize the LLM
+    llm = ChatOpenAI(
+        model="gpt-4o",
+        temperature=0.7,
+        openai_api_key=os.getenv("OPENAI_API_KEY"),
+    )
+
+    # Get available tools
+    tools = get_tools()
+
+    # Create a mapping of tool names to tool functions
+    tool_map = {tool.name: tool for tool in tools}
+
+    # Bind tools to the LLM
+    llm_with_tools = llm.bind_tools(tools)
 
     try:
         # Enhance message with customer context if provided
@@ -115,9 +89,56 @@ def handle_message(message: str, context: dict = None, history: list = None) -> 
             customer_id = context["customer_id"]
             enhanced_message = f"[Customer ID: {customer_id}] {message}"
 
-        # Run the agent
-        result = agent.invoke({"input": enhanced_message})
-        return result.get("output", "I apologize, but I'm unable to process your request at this time.")
+        # Prepare the messages for the agent
+        messages = [
+            SystemMessage(content=SYSTEM_PROMPT),
+            HumanMessage(content=enhanced_message)
+        ]
+
+        # Agentic loop - keep calling until we get a final response
+        max_iterations = 10
+        iteration = 0
+
+        while iteration < max_iterations:
+            iteration += 1
+
+            # Call the LLM
+            response = llm_with_tools.invoke(messages)
+
+            # If the LLM didn't call any tools, return the response
+            if not response.tool_calls:
+                # Extract text content
+                if hasattr(response, 'content'):
+                    return response.content
+                else:
+                    return str(response)
+
+            # Process tool calls
+            messages.append(response)
+
+            for tool_call in response.tool_calls:
+                tool_name = tool_call['name']
+                tool_args = tool_call['args']
+
+                # Get the tool function
+                if tool_name not in tool_map:
+                    tool_result = f"Tool {tool_name} not found"
+                else:
+                    tool = tool_map[tool_name]
+                    try:
+                        tool_result = tool.func(**tool_args)
+                    except Exception as e:
+                        tool_result = f"Error calling tool: {str(e)}"
+
+                # Add tool result to messages
+                messages.append(ToolMessage(
+                    content=tool_result,
+                    tool_call_id=tool_call['id']
+                ))
+
+        # If we hit max iterations, return what we have
+        return "I apologize, but I took too long to process your request. Please try again."
+
     except Exception as e:
         return f"I apologize, but I'm experiencing technical difficulties: {str(e)}"
 
@@ -139,14 +160,13 @@ def main():
 
         message = input_data.get("message", "")
         context = input_data.get("context", {})
-        history = input_data.get("history", [])
 
         if not message:
             print("I need a message to help you. Could you please provide more details?")
             return
 
         # Process message with agent
-        response = handle_message(message, context, history)
+        response = handle_message(message, context)
 
         # Output response (plain text)
         print(response)
@@ -155,11 +175,8 @@ def main():
         print("I apologize, but I couldn't understand the input format. Please provide valid JSON.")
         sys.exit(1)
     except Exception as e:
-        print(
-            "I apologize, but I'm experiencing technical difficulties. "
-            "Please try again or contact our support team directly."
-        )
-        sys.exit(0)
+        print(f"I apologize, but I'm experiencing technical difficulties: {str(e)}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

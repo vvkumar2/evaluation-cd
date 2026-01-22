@@ -10,8 +10,8 @@ openai>=1.12.0
 anthropic>=0.18.0
 
 # LangChain
-langchain>=0.1.0
-langchain-openai>=0.0.5
+langchain>=1.0.0
+langchain-openai>=0.1.0
 langchain-core>=0.1.0
 
 # CLI

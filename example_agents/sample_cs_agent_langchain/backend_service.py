@@ -3,9 +3,13 @@ Fake order/customer backend service for LangChain agent testing.
 
 Provides in-memory storage of orders and customers for tool use.
 This can be easily swapped for a real database without changing agent code.
+
+For testing: If a test_data.json file exists in the current directory,
+it will be loaded as the test context instead of using default data.
 """
 
-from datetime import datetime, timedelta
+import json
+from pathlib import Path
 from typing import Optional, Dict, Any
 
 
@@ -13,6 +17,17 @@ class BackendService:
     """In-memory order and customer database."""
 
     def __init__(self):
+        """Initialize with sample data for testing, or test data if available."""
+        # Try to load test data from file first
+        test_data_file = Path("test_data.json")
+        if test_data_file.exists():
+            self._load_from_file(test_data_file)
+            return
+
+        # Fall back to sample data
+        self._initialize_sample_data()
+
+    def _initialize_sample_data(self):
         """Initialize with sample data for testing."""
         # Sample orders with diverse scenarios
         self.orders = {
@@ -107,6 +122,63 @@ class BackendService:
                 "email": "charlie@example.com",
             },
         }
+
+    def _load_from_file(self, file_path: Path):
+        """
+        Load test data from a JSON file.
+
+        File format:
+        {
+          "customer": {
+            "customer_id": "CUST-GEN-001",
+            "tier": "gold",
+            "name": "John Doe",
+            "email": "john@example.com"
+          },
+          "orders": [
+            {
+              "order_id": "ORD-GEN-001",
+              "price": 150.00,
+              "status": "delivered",
+              "delivered_date_days_ago": 5
+            }
+          ]
+        }
+        """
+        try:
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+
+            # Initialize empty dicts
+            self.orders = {}
+            self.customers = {}
+
+            # Load customer
+            if 'customer' in data:
+                customer = data['customer']
+                customer_id = customer.get('customer_id', 'TEST-CUSTOMER')
+                self.customers[customer_id] = {
+                    'id': customer_id,
+                    'tier': customer.get('tier', 'standard'),
+                    'name': customer.get('name', 'Test Customer'),
+                    'email': customer.get('email', 'test@example.com')
+                }
+
+            # Load orders
+            if 'orders' in data and isinstance(data['orders'], list):
+                for order_data in data['orders']:
+                    order_id = order_data.get('order_id', 'TEST-ORDER')
+                    self.orders[order_id] = {
+                        'id': order_id,
+                        'customer_id': customer_id if 'customer' in data else 'TEST-CUSTOMER',
+                        'price': float(order_data.get('price', 0.0)),
+                        'status': order_data.get('status', 'delivered'),
+                        'delivered_date_days_ago': int(order_data.get('delivered_date_days_ago', 0))
+                    }
+
+        except Exception as e:
+            print(f"Error loading test data from {file_path}: {e}")
+            self._initialize_sample_data()
 
     def get_order(self, order_id: str) -> Optional[Dict[str, Any]]:
         """

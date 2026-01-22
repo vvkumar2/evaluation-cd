@@ -4,6 +4,7 @@ AgentEval CLI - AI Agent Testing Platform
 Commands:
 - parse: Analyze codebase and extract agent capabilities
 - generate: Generate test cases from parsed capabilities or codebase
+- evaluate: Run tests against an agent and score the results
 """
 
 import click
@@ -46,7 +47,7 @@ def cli():
 @click.option(
     '--output',
     type=click.Path(),
-    default='tests/parsed_codebase.json',
+    default='tests/parsing/parsed_codebase.json',
     help='Output file for parsed capabilities (JSON format)'
 )
 def parse(codebase, business_logic, output):
@@ -111,7 +112,7 @@ def parse(codebase, business_logic, output):
 @click.option(
     '--output',
     type=click.Path(),
-    default='tests/generated_tests.yaml',
+    default='tests/generation/generated_tests.yaml',
     help='Output file for generated tests (YAML format)'
 )
 def generate(parsed_capabilities, output):
@@ -174,6 +175,61 @@ def generate(parsed_capabilities, output):
             f"[cyan]Expected Outcome:[/cyan]\n{sample.get('expected_outcome', 'N/A')}",
             border_style="green"
         ))
+
+
+@cli.command()
+@click.option(
+    '--tests',
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+    required=True,
+    help='Path to test cases YAML file'
+)
+@click.option(
+    '--agent',
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+    required=True,
+    help='Path to agent script (e.g., agent.py)'
+)
+@click.option(
+    '--output',
+    type=click.Path(),
+    default='tests/evaluation/evaluation.yaml',
+    help='Output file for results (YAML format)'
+)
+def evaluate(tests, agent, output):
+    """
+    Run test cases against an agent and score the results.
+
+    Loads generated test cases, runs them against the specified agent,
+    and scores each response using LLM comparison.
+
+    Example:
+        agenteval evaluate --tests tests/generation/generated_tests.yaml --agent example_agents/sample_cs_agent_langchain/agent.py
+    """
+    console.print("\n[bold cyan]AgentEval - Test Evaluation[/bold cyan]")
+    console.print("=" * 70)
+
+    tests_path = Path(tests)
+    agent_path = Path(agent)
+    output_path = Path(output)
+
+    console.print(f"\n[cyan]Tests:[/cyan] {tests_path}")
+    console.print(f"[cyan]Agent:[/cyan] {agent_path}")
+    console.print(f"[cyan]Output:[/cyan] {output_path}")
+
+    # Import here to avoid issues if runner dependencies aren't installed
+    from ..runner.test_runner import TestRunner
+
+    # Run tests
+    with console.status("[cyan]Running tests and scoring...\n"):
+        runner = TestRunner(agent_path)
+        runner.run_tests(tests_path)
+        runner.save_results(output_path)
+
+    # Print summary
+    runner.print_summary()
+
+    console.print(f"\n[green]✓ Results saved to:[/green] {output_path}")
 
 
 if __name__ == '__main__':
