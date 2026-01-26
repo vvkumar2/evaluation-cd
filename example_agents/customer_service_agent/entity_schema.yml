@@ -1,0 +1,44 @@
+order:
+  description: "Customer order information"
+  fields:
+    id:
+      type: string
+      description: "Order ID (e.g., ORD-001)"
+    customer_id:
+      type: string
+      description: "Customer ID who placed the order"
+    price:
+      type: number
+      min: 0
+      description: "Order total price in dollars"
+    status:
+      type: string
+      enum: [pending, processing, shipped, delivered, cancelled]
+      description: "Current order status"
+    delivered_date_days_ago:
+      type: integer
+      min: 0
+      description: "Days since order was delivered (0 if not delivered)"
+  relationships:
+    - entity: customer
+      type: belongs_to
+      foreign_key: customer_id
+
+customer:
+  description: "Customer information"
+  fields:
+    id:
+      type: string
+      description: "Customer ID (e.g., CUST-001)"
+    tier:
+      type: string
+      enum: [standard, gold, platinum]
+      description: "Customer tier level"
+    name:
+      type: string
+      description: "Customer name"
+    email:
+      type: string
+      format: email
+      description: "Customer email address"
+  relationships: []
