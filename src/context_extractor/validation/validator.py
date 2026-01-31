@@ -2,14 +2,12 @@
 
 from typing import Optional
 
-from ..schemas.tool_schema import ToolSchemaOutput
-from ..schemas.entity_schema import EntitySchemaOutput
+from ..schemas.tool_schema import EnrichedToolSchemaList
+from ..schemas.entity_schema import EnrichedEntitySchemaList
 from ..schemas.prompt_schema import SystemPromptExtraction, Intent
 
 
 class ValidationError:
-    """A validation error."""
-
     def __init__(self, error_type: str, message: str, context: Optional[dict] = None):
         self.error_type = error_type
         self.message = message
@@ -20,8 +18,6 @@ class ValidationError:
 
 
 class ValidationResult:
-    """Result of validation."""
-
     def __init__(self, is_valid: bool, errors: list[ValidationError] = None):
         self.is_valid = is_valid
         self.errors = errors or []
@@ -31,7 +27,7 @@ class ValidationResult:
 
 
 class AgentTestValidator:
-    """Validates extracted agent information."""
+    """Validates that extracted tools, entities, and prompts are semantically consistent and complete."""
 
     def __init__(self):
         self.tool_names = set()
@@ -40,24 +36,11 @@ class AgentTestValidator:
 
     def validate_parsed_output(
         self,
-        tools: ToolSchemaOutput,
-        entities: EntitySchemaOutput,
+        tools: EnrichedToolSchemaList,
+        entities: EnrichedEntitySchemaList,
         prompt_extraction: SystemPromptExtraction,
     ) -> ValidationResult:
-        """
-        Validate extracted outputs.
-
-        Args:
-            tools: Extracted tool schemas
-            entities: Extracted entity schemas
-            prompt_extraction: Extracted prompt information
-
-        Returns:
-            ValidationResult with any errors found
-        """
         errors = []
-
-        # Index tools and entities for validation
         self.tool_names = {tool.name for tool in tools.tools}
         self.entity_names = {entity.name for entity in entities.entities}
         self.entity_fields = {
@@ -85,10 +68,8 @@ class AgentTestValidator:
         return ValidationResult(is_valid, errors)
 
     def _validate_intent(self, intent: Intent) -> list[ValidationError]:
-        """Validate a single intent."""
+        """Validate that an intent has required fields and valid structure."""
         errors = []
-
-        # Intent should have basic info
         if not intent.name:
             errors.append(
                 ValidationError(
@@ -150,26 +131,10 @@ class AgentTestValidator:
 
     def fix_validation_errors(
         self,
-        tools: ToolSchemaOutput,
-        entities: EntitySchemaOutput,
+        tools: EnrichedToolSchemaList,
+        entities: EnrichedEntitySchemaList,
         prompt_extraction: SystemPromptExtraction,
-        errors: list[ValidationError],
-    ) -> tuple[ToolSchemaOutput, EntitySchemaOutput, SystemPromptExtraction]:
-        """
-        Fix validation errors in extracted outputs.
-
-        This is a best-effort attempt to fix common errors.
-
-        Args:
-            tools: Extracted tool schemas
-            entities: Extracted entity schemas
-            prompt_extraction: Extracted prompt information
-            errors: Validation errors to fix
-
-        Returns:
-            Tuple of fixed outputs
-        """
-        # For now, just return as-is
-        # More sophisticated fixing could be added based on error types
+    ) -> tuple[EnrichedToolSchemaList, EnrichedEntitySchemaList, SystemPromptExtraction]:
+        """Attempt to fix common validation errors (currently a placeholder for future enhancement)."""
 
         return tools, entities, prompt_extraction

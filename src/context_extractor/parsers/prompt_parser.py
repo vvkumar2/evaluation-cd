@@ -1,47 +1,28 @@
-"""Step 3: Parse system prompt to extract intents, rules, and refusals."""
-
 import json
-from typing import Optional
-
 from ..schemas.prompt_schema import (
     SystemPromptExtraction,
     Intent,
     IntentRule,
     IntentOutcome,
+    IntentRequiredSlot,
     GlobalRule,
     Refusal,
 )
-from ..schemas.tool_schema import ToolSchemaOutput
-from ..schemas.entity_schema import EntitySchemaOutput
-
+from ..schemas.tool_schema import ToolSchemaList
 
 class SystemPromptParser:
-    """Parses system prompts to extract business logic."""
+    """Extracts intents, rules, and refusals from system prompts using LLM analysis."""
 
     def __init__(self, client=None):
-        """
-        Initialize parser.
-
-        Args:
-            client: LLM client (e.g., OpenAI client). If None, uses environment variables.
-        """
+        """Initialize parser with optional LLM client."""
         self.client = client
 
     def extract_intents(
         self,
         system_prompt: str,
-        tools: Optional[ToolSchemaOutput] = None,
+        tools: ToolSchemaList = None,
     ) -> list[Intent]:
-        """
-        Extract intents from system prompt.
-
-        Args:
-            system_prompt: The system prompt to parse
-            tools: Available tools (optional, for context)
-
-        Returns:
-            List of extracted intents
-        """
+        """Use LLM to identify goals and tasks the agent can help with."""
         prompt = self._build_intent_extraction_prompt(system_prompt, tools)
         response = self._call_llm(prompt)
         intents = self._parse_intent_response(response)
@@ -52,16 +33,7 @@ class SystemPromptParser:
         system_prompt: str,
         intents: list[Intent],
     ) -> list[GlobalRule]:
-        """
-        Extract global rules that apply across intents.
-
-        Args:
-            system_prompt: The system prompt to parse
-            intents: Extracted intents (for context)
-
-        Returns:
-            List of extracted global rules
-        """
+        """Use LLM to identify rules that apply across multiple intents."""
         prompt = self._build_global_rule_extraction_prompt(system_prompt, intents)
         response = self._call_llm(prompt)
         rules = self._parse_global_rule_response(response)
@@ -71,15 +43,7 @@ class SystemPromptParser:
         self,
         system_prompt: str,
     ) -> list[Refusal]:
-        """
-        Extract refusals from system prompt.
-
-        Args:
-            system_prompt: The system prompt to parse
-
-        Returns:
-            List of extracted refusals
-        """
+        """Use LLM to identify requests and behaviors the agent should refuse."""
         prompt = self._build_refusal_extraction_prompt(system_prompt)
         response = self._call_llm(prompt)
         refusals = self._parse_refusal_response(response)
@@ -88,34 +52,13 @@ class SystemPromptParser:
     def parse_system_prompt(
         self,
         system_prompt: str,
-        tools: Optional[ToolSchemaOutput] = None,
-        entities: Optional[EntitySchemaOutput] = None,
+        tools: ToolSchemaList = None,
     ) -> SystemPromptExtraction:
-        """
-        Parse system prompt to extract all business logic.
-
-        Args:
-            system_prompt: The system prompt
-            tools: Available tools (optional)
-            entities: Entity schemas (optional)
-
-        Returns:
-            Extracted system prompt structure
-        """
-        # Extract intents
+        """Extract all business logic from system prompt: identity, intents, rules, and refusals."""
         intents = self.extract_intents(system_prompt, tools)
-
-        # Extract global rules
         global_rules = self.extract_global_rules(system_prompt, intents)
-
-        # Extract refusals
         refusals = self.extract_refusals(system_prompt)
-
-        # Extract agent name and role
         agent_name, agent_role = self._extract_agent_identity(system_prompt)
-
-        # Extract personality traits
-        personality_traits = self._extract_personality_traits(system_prompt)
 
         return SystemPromptExtraction(
             agent_name=agent_name,
@@ -123,20 +66,25 @@ class SystemPromptParser:
             intents=intents,
             global_rules=global_rules,
             refusals=refusals,
-            personality_traits=personality_traits,
         )
 
     def _build_intent_extraction_prompt(
         self,
         system_prompt: str,
-        tools: Optional[ToolSchemaOutput],
+        tools: ToolSchemaList = None,
     ) -> str:
-        """Build prompt to extract intents."""
+        """Build LLM prompt for intent extraction."""
         tools_context = ""
+        tool_names_list = []
         if tools:
             tools_context = "\n\nAvailable Tools:\n"
             for tool in tools.tools:
                 tools_context += f"- {tool.name}: {tool.description}\n"
+                tool_names_list.append(tool.name)
+
+        source_options = "user_input"
+        if tool_names_list:
+            source_options += " | " + " | ".join(tool_names_list)
 
         return f"""Extract all intents from this system prompt. An intent is a goal or task the agent can help with.
 
@@ -148,18 +96,23 @@ For each intent, extract:
 - name: Intent name (e.g., 'process_refund', 'check_order_status')
 - description: What this intent does
 - trigger_examples: 3-5 example customer messages that would trigger this intent
-- required_slots: Information the agent needs to fulfill this intent
+- required_slots: Information the agent needs to fulfill this intent (with their sources)
 - workflow: Step-by-step process for handling this intent
 - rules: Specific rules that apply to this intent
 - requires_confirmation: Whether the agent should ask for confirmation
-- outcomes: Possible outcomes (success, denial, escalation, etc.)
+- outcomes: Possible outcomes - use the actual return values from the tools used in this intent's workflow
 
 Respond with a JSON array of intent objects with this structure:
 {{
   "name": "string",
   "description": "string",
   "trigger_examples": ["string"],
-  "required_slots": ["string"],
+  "required_slots": [
+    {{
+      "slot_name": "entity_name_in_snake_case",
+      "source": "{source_options}"
+    }}
+  ],
   "workflow": ["string"],
   "rules": [
     {{
@@ -183,7 +136,7 @@ Respond with a JSON array of intent objects with this structure:
         system_prompt: str,
         intents: list[Intent],
     ) -> str:
-        """Build prompt to extract global rules."""
+        """Build LLM prompt for global rule extraction."""
         intent_names = [i.name for i in intents]
 
         return f"""Extract global rules from this system prompt. Global rules apply across multiple intents.
@@ -208,7 +161,7 @@ Respond with a JSON array of rule objects with this structure:
 }}"""
 
     def _build_refusal_extraction_prompt(self, system_prompt: str) -> str:
-        """Build prompt to extract refusals."""
+        """Build LLM prompt for refusal extraction."""
         return f"""Extract things the agent should refuse to do from this system prompt.
 
 System Prompt:
@@ -227,7 +180,7 @@ Respond with a JSON array of refusal objects with this structure:
 }}"""
 
     def _extract_agent_identity(self, system_prompt: str) -> tuple[str, str]:
-        """Extract agent name and role from prompt."""
+        """Use LLM to extract agent's name and role."""
         prompt = f"""Extract the agent's name and role from this system prompt.
 
 System Prompt:
@@ -249,29 +202,8 @@ Respond with a JSON object:
         except (json.JSONDecodeError, TypeError):
             return "Agent", "AI Assistant"
 
-    def _extract_personality_traits(self, system_prompt: str) -> list[str]:
-        """Extract personality traits from prompt."""
-        prompt = f"""Extract personality traits and characteristics from this system prompt.
-Include traits like: professional, empathetic, helpful, strict, friendly, etc.
-
-System Prompt:
-{system_prompt}
-
-Respond with a JSON array of strings: ["trait1", "trait2", ...]"""
-
-        response = self._call_llm(prompt)
-
-        try:
-            traits = json.loads(response)
-            if isinstance(traits, list):
-                return traits
-        except json.JSONDecodeError:
-            pass
-
-        return []
-
     def _call_llm(self, prompt: str) -> str:
-        """Call LLM with prompt."""
+        """Call LLM and extract JSON from response, handling markdown code blocks."""
         if not self.client:
             return "{}"
 
@@ -302,7 +234,7 @@ Respond with a JSON array of strings: ["trait1", "trait2", ...]"""
             return "{}"
 
     def _parse_intent_response(self, response: str) -> list[Intent]:
-        """Parse LLM response for intents."""
+        """Parse JSON response from LLM and convert to Intent objects."""
         intents = []
 
         try:
@@ -334,11 +266,20 @@ Respond with a JSON array of strings: ["trait1", "trait2", ...]"""
                         )
                         outcomes.append(outcome)
 
+                    required_slots = []
+                    for slot_def in item.get("required_slots", []):
+                        if isinstance(slot_def, dict):
+                            slot = IntentRequiredSlot(
+                                slot_name=slot_def.get("slot_name", "unknown"),
+                                source=slot_def.get("source", "user_input"),
+                            )
+                            required_slots.append(slot)
+
                     intent = Intent(
                         name=item.get("name", "unknown"),
                         description=item.get("description", ""),
                         trigger_examples=item.get("trigger_examples", []),
-                        required_slots=item.get("required_slots", []),
+                        required_slots=required_slots,
                         workflow=item.get("workflow", []),
                         rules=rules,
                         requires_confirmation=item.get("requires_confirmation", False),
@@ -351,7 +292,7 @@ Respond with a JSON array of strings: ["trait1", "trait2", ...]"""
         return intents
 
     def _parse_global_rule_response(self, response: str) -> list[GlobalRule]:
-        """Parse LLM response for global rules."""
+        """Parse JSON response from LLM and convert to GlobalRule objects."""
         rules = []
 
         try:
@@ -374,7 +315,7 @@ Respond with a JSON array of strings: ["trait1", "trait2", ...]"""
         return rules
 
     def _parse_refusal_response(self, response: str) -> list[Refusal]:
-        """Parse LLM response for refusals."""
+        """Parse JSON response from LLM and convert to Refusal objects."""
         refusals = []
 
         try:
