@@ -2,7 +2,7 @@
 
 from .tool_schema import ToolSchema, ToolSchemaList, EnrichedToolSchemaList, ToolReturn
 from .entity_schema import EntitySchema, EntitySchemaList, EnrichedEntitySchemaList
-from .prompt_schema import SystemPromptExtraction
+from .prompt_schema import SystemPromptExtraction, StructuredSystemPromptExtraction
 
 __all__ = [
     "ToolSchema",
@@ -13,4 +13,5 @@ __all__ = [
     "EntitySchemaList",
     "EnrichedEntitySchemaList",
     "SystemPromptExtraction",
+    "StructuredSystemPromptExtraction",
 ]

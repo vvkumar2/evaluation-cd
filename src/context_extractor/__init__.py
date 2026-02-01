@@ -6,7 +6,7 @@ from .parsers import (
     parse_entity_schema,
     SystemPromptParser,
 )
-from .enricher import AgentEnricher
+from .enrichment import AgentEnricher
 from .validation import AgentTestValidator, ValidationResult, ValidationError
 from .schemas import (
     ToolSchema,
@@ -16,6 +16,7 @@ from .schemas import (
     EntitySchemaList,
     EnrichedEntitySchemaList,
     SystemPromptExtraction,
+    StructuredSystemPromptExtraction,
 )
 
 __all__ = [
@@ -34,4 +35,5 @@ __all__ = [
     "EntitySchemaList",
     "EnrichedEntitySchemaList",
     "SystemPromptExtraction",
+    "StructuredSystemPromptExtraction",
 ]

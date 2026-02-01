@@ -1,7 +1,7 @@
 import json
-from .schemas.tool_schema import ToolSchemaList, EnrichedToolSchema, EnrichedToolSchemaList, EnrichedToolReturnList
-from .schemas.entity_schema import EntitySchemaList, EnrichedEntitySchema, EnrichedEntitySchemaList, EntityThreshold, EnrichedEntityThresholdList
-from .schemas.prompt_schema import SystemPromptExtraction
+from ..schemas.tool_schema import ToolSchemaList, EnrichedToolSchema, EnrichedToolSchemaList, EnrichedToolReturnList
+from ..schemas.entity_schema import EntitySchemaList, EnrichedEntitySchema, EnrichedEntitySchemaList, EntityThreshold, EnrichedEntityThresholdList
+from ..schemas.prompt_schema import SystemPromptExtraction
 
 
 class AgentEnricher:
@@ -18,7 +18,7 @@ class AgentEnricher:
         system_prompt: str,
     ) -> tuple[EnrichedToolSchemaList, EnrichedEntitySchemaList]:
         enriched_tools = self._enrich_tools(tools, entities, prompt)
-        enriched_entities = self._enrich_entities(entities, prompt, system_prompt)
+        enriched_entities = self._enrich_entities(entities, system_prompt)
 
         return enriched_tools, enriched_entities
 
@@ -70,14 +70,12 @@ Respond with valid JSON matching this structure:
     def _enrich_entities(
         self,
         entities: EntitySchemaList,
-        prompt: SystemPromptExtraction,
         system_prompt: str,
     ) -> EnrichedEntitySchemaList:
         """Enrich entities with thresholds using LLM."""
         entities_text = self._format_entities(entities)
-        rules_text = self._format_rules(prompt)
 
-        llm_prompt = f"""Extract ALL thresholds and decision boundaries for each entity from the system prompt and business rules below. 
+        llm_prompt = f"""Extract ALL thresholds and decision boundaries for each entity from the system prompt and business rules below.
 Use detailed threshold names formatted in snake_case and use the exact values as they appear in the system prompt and rules. Include the unit if mentioned.
 
 Entities:
@@ -85,9 +83,6 @@ Entities:
 
 System Prompt:
 {system_prompt}
-
-Business Rules:
-{rules_text}
 
 Respond with valid JSON matching the following example structure for each entity:
 {{
@@ -104,7 +99,7 @@ Respond with valid JSON matching the following example structure for each entity
       ]
     }}
   ]
-}}""" 
+}}"""
         response = self._call_llm(llm_prompt)
         enriched = self._parse_entities_response(response, entities)
         return enriched
@@ -121,68 +116,52 @@ Respond with valid JSON matching the following example structure for each entity
         """Format intents for LLM input."""
         return "\n".join(f"- {intent.name}: {intent.description}, workflow: {' -> '.join(intent.workflow)}" for intent in prompt.intents)
 
-    def _format_rules(self, prompt: SystemPromptExtraction) -> str:
-        """Format rules for LLM input."""
-        return "\n".join(f"- {rule.name}: {rule.description}, behavior: {rule.behavior}" for rule in prompt.global_rules)
-
     def _call_llm(self, prompt: str) -> str:
         """Call LLM and extract JSON from response."""
         if not self.client:
-            return "{}"
+            raise RuntimeError("LLM client not initialized")
 
-        try:
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0,
-            )
-            content = response.choices[0].message.content
+        response = self.client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+        )
+        content = response.choices[0].message.content
 
-            if "```json" in content:
-                start = content.find("```json") + 7
-                end = content.find("```", start)
-                if end > start:
-                    content = content[start:end].strip()
-            elif "```" in content:
-                start = content.find("```") + 3
-                end = content.find("```", start)
-                if end > start:
-                    content = content[start:end].strip()
+        if "```json" in content:
+            start = content.find("```json") + 7
+            end = content.find("```", start)
+            if end > start:
+                content = content[start:end].strip()
+        elif "```" in content:
+            start = content.find("```") + 3
+            end = content.find("```", start)
+            if end > start:
+                content = content[start:end].strip()
 
-            return content
-        except Exception:
-            return "{}"
+        return content
 
     def _parse_tools_response(
         self, response: str, original_tools: ToolSchemaList
     ) -> EnrichedToolSchemaList:
         """Parse LLM response and convert to EnrichedToolSchemaList."""
-        try:
-            data = json.loads(response)
-            enriched_data = EnrichedToolReturnList(**data)
+        data = json.loads(response)
+        enriched_data = EnrichedToolReturnList(**data)
 
-            tools_dict = {t.name: t for t in original_tools.tools}
-            enriched_list = []
+        tools_dict = {t.name: t for t in original_tools.tools}
+        enriched_list = []
 
-            for enriched_tool in enriched_data.tools:
-                original = tools_dict.get(enriched_tool.name)
-                if original:
-                    updated = {
-                        **original.model_dump(),
-                        "returns": enriched_tool.returns.model_dump(),
-                    }
+        for enriched_tool in enriched_data.tools:
+            original = tools_dict.get(enriched_tool.name)
+            if original:
+                updated = {
+                    **original.model_dump(),
+                    "returns": enriched_tool.returns.model_dump(),
+                }
 
-                    enriched_list.append(EnrichedToolSchema(**updated))
+                enriched_list.append(EnrichedToolSchema(**updated))
 
-            return EnrichedToolSchemaList(tools=enriched_list)
-        except Exception:
-            enriched_list = [
-                EnrichedToolSchema(
-                    **{**t.model_dump(), "returns": {"type": "unknown", "entity_name": None, "description": ""}}
-                )
-                for t in original_tools.tools
-            ]
-            return EnrichedToolSchemaList(tools=enriched_list)
+        return EnrichedToolSchemaList(tools=enriched_list)
 
     def _parse_entities_response(
         self, response: str, original_entities: EntitySchemaList

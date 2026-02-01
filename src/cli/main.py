@@ -7,6 +7,7 @@ from rich.table import Table
 from openai import OpenAI
 from ..context_extractor.agent_loader import load_agent
 from ..context_extractor import AgentTestSpaceExtractor
+from ..context_extractor.validation import AgentTestValidator
 import yaml
 
 console = Console()
@@ -84,20 +85,21 @@ def extract(agent_dir, validate):
         )
         console.print(f"   [green]✓[/green] Step 3: Extracted intents/rules")
         console.print(f"   [green]✓[/green] Step 4: Enriched tools and entities")
-        console.print(f"   [green]✓[/green] Step 5: Validated extraction")
+        console.print(f"   [green]✓[/green] Step 5: Enriched rules to structured format")
+        console.print(f"   [green]✓[/green] Step 6: Validated extraction")
 
         if validate and "validation" in extraction:
-            validation = extraction["validation"]
+            validation_result = extraction["validation"]
             console.print(
-                f"      Valid: [{'green' if validation['is_valid'] else 'red'}]{validation['is_valid']}[/]"
+                f"      Valid: [{'green' if validation_result.is_valid else 'red'}]{validation_result.is_valid}[/]"
             )
-            if validation["errors"]:
+            if validation_result.errors:
                 console.print(
-                    f"      Errors: [yellow]{len(validation['errors'])}[/]"
+                    f"      Errors: [yellow]{len(validation_result.errors)}[/]"
                 )
 
         # Convert to YAML
-        console.print(f"\n[cyan]6. Converting to YAML format...")
+        console.print(f"\n[cyan]7. Converting to YAML format...")
 
         output_dict = {
             "agent": {
@@ -107,13 +109,11 @@ def extract(agent_dir, validate):
             "tools": extraction["tools"].model_dump()["tools"],
             "entities": extraction["entities"].model_dump()["entities"],
             "intents": [i.model_dump() for i in extraction["prompt"].intents],
-            "global_rules": [r.model_dump() for r in extraction["prompt"].global_rules],
-            "refusals": [r.model_dump() for r in extraction["prompt"].refusals],
         }
 
         console.print(f"   [green]✓[/green] Converted to YAML format")
 
-        console.print(f"\n[cyan]7. Saving results...")
+        console.print(f"\n[cyan]8. Saving results...")
         output.parent.mkdir(parents=True, exist_ok=True)
 
         with open(output, "w") as f:
@@ -121,6 +121,15 @@ def extract(agent_dir, validate):
 
         console.print(f"   [green]✓[/green] Results saved to: {output}")
         console.print(f"   [green]✓[/green] File size: {output.stat().st_size} bytes")
+
+        # Write validation errors to file if there are any
+        if validate and "validation" in extraction:
+            validation_result = extraction["validation"]
+            if validation_result.errors:
+                validator = AgentTestValidator()
+                validator.write_validation_errors(validation_result, output)
+                error_path = output.parent / f"{output.stem}_errors.json"
+                console.print(f"   [yellow]⚠[/yellow] Validation errors written to: {error_path}")
 
         # Summary table
         console.print("\n[bold green]✓ Extraction Complete![/bold green]")
@@ -130,8 +139,6 @@ def extract(agent_dir, validate):
         summary.add_row("Tools", str(len(extraction["tools"].tools)))
         summary.add_row("Entities", str(len(extraction["entities"].entities)))
         summary.add_row("Intents", str(len(extraction["prompt"].intents)))
-        summary.add_row("Global Rules", str(len(extraction["prompt"].global_rules)))
-        summary.add_row("Refusals", str(len(extraction["prompt"].refusals)))
         console.print(summary)
 
         console.print(

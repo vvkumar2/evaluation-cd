@@ -5,8 +5,8 @@ from .parsers import (
     SystemPromptParser,
 )
 from .validation import AgentTestValidator
-from .enricher import AgentEnricher
-from .schemas import ToolSchemaList, EntitySchemaList, EnrichedToolSchemaList, EnrichedEntitySchemaList, SystemPromptExtraction
+from .enrichment import AgentEnricher, RuleEnricher
+from .schemas import ToolSchemaList, EntitySchemaList, EnrichedToolSchemaList, EnrichedEntitySchemaList, SystemPromptExtraction, StructuredSystemPromptExtraction
 
 
 class AgentTestSpaceExtractor:
@@ -17,6 +17,7 @@ class AgentTestSpaceExtractor:
         self.validator = AgentTestValidator()
         self.enricher = AgentEnricher(llm_client)
         self.prompt_parser = SystemPromptParser(llm_client)
+        self.rule_enricher = RuleEnricher(llm_client)
 
     def extract_all(
         self,
@@ -28,12 +29,13 @@ class AgentTestSpaceExtractor:
         entities = self.step2_parse_entities(entity_schema)
         prompt_extraction = self.step3_parse_prompt(system_prompt, tools)
         tools, entities = self.step4_enrich(tools, entities, prompt_extraction, system_prompt)
-        validation_result = self.step5_validate(tools, entities, prompt_extraction)
+        structured_prompt_extraction = self.step5_enrich_rules(prompt_extraction, entities, tools)
+        validation_result = self.step6_validate(tools, entities, structured_prompt_extraction)
 
         return {
             "tools": tools,
             "entities": entities,
-            "prompt": prompt_extraction,
+            "prompt": structured_prompt_extraction,
             "validation": validation_result,
         }
 
@@ -61,22 +63,29 @@ class AgentTestSpaceExtractor:
     ) -> tuple[EnrichedToolSchemaList, EnrichedEntitySchemaList]:
         return self.enricher.enrich_all(tools, entities, prompt, system_prompt)
 
-    def step5_validate(
+    def step5_enrich_rules(
+        self,
+        prompt_extraction: SystemPromptExtraction,
+        entities: EnrichedEntitySchemaList,
+        tools: EnrichedToolSchemaList,
+    ) -> StructuredSystemPromptExtraction:
+        """Convert natural language rules to structured rules with explicit conditions."""
+        structured_intents = []
+        for intent in prompt_extraction.intents:
+            structured_intent = self.rule_enricher.enrich_intent_rules(intent, entities, tools)
+            structured_intents.append(structured_intent)
+
+        structured_system_prompt_extraction = StructuredSystemPromptExtraction(
+            agent_name=prompt_extraction.agent_name,
+            agent_role=prompt_extraction.agent_role,
+            intents=structured_intents,
+        )
+        return structured_system_prompt_extraction
+
+    def step6_validate(
         self,
         tools: EnrichedToolSchemaList,
         entities: EnrichedEntitySchemaList,
-        prompt_extraction: SystemPromptExtraction,
-    ) -> dict:
-        validation_result = self.validator.validate_parsed_output(
-            tools, entities, prompt_extraction
-        )
-
-        if not validation_result.is_valid:
-            tools, entities, prompt_extraction = self.validator.fix_validation_errors(
-                tools, entities, prompt_extraction
-            )
-
-        return {
-            "is_valid": validation_result.is_valid,
-            "errors": validation_result.errors,
-        }
+        prompt_extraction: StructuredSystemPromptExtraction,
+    ):
+        return self.validator.validate_parsed_output(tools, entities, prompt_extraction)
