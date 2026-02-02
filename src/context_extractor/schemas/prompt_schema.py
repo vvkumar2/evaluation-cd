@@ -35,7 +35,6 @@ class IntentRule(BaseModel):
 class IntentOutcome(BaseModel):
     outcome_name: str
     description: str
-    triggering_conditions: list[str]
 
 class Intent(BaseModel):
     name: str

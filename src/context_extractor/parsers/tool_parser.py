@@ -1,6 +1,3 @@
-import json
-from pathlib import Path
-
 from ..schemas.tool_schema import (
     ToolSchema,
     ToolSchemaList,
@@ -8,37 +5,8 @@ from ..schemas.tool_schema import (
 )
 
 
-def parse_tools(tools_json: str | dict | Path) -> ToolSchemaList:
-    """Parse tool definitions from JSON format."""
-    if isinstance(tools_json, Path):
-        with open(tools_json) as f:
-            tools_data = json.load(f)
-    elif isinstance(tools_json, str):
-        try:
-            tools_data = json.loads(tools_json)
-        except json.JSONDecodeError:
-            tools_data = json.loads(Path(tools_json).read_text())
-    else:
-        tools_data = tools_json
-
-    if isinstance(tools_data, dict):
-        if "tools" in tools_data:
-            tools_list = tools_data["tools"]
-        elif "functions" in tools_data:
-            tools_list = tools_data["functions"]
-        else:
-            tools_list = [tools_data]
-    elif isinstance(tools_data, list):
-        tools_list = tools_data
-    else:
-        raise ValueError(f"Unexpected tools format: {type(tools_data)}")
-
-    parsed_tools = []
-    for tool_def in tools_list:
-        parsed_tool = _parse_single_tool(tool_def)
-        parsed_tools.append(parsed_tool)
-
-    return ToolSchemaList(tools=parsed_tools)
+def parse_tools(tools_data: dict) -> ToolSchemaList:
+    return ToolSchemaList(tools=[_parse_single_tool(tool_def) for tool_def in tools_data["tools"]])
 
 
 def _parse_single_tool(tool_def: dict) -> ToolSchema:

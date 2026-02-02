@@ -31,6 +31,15 @@ class EnrichedToolReturnItem(BaseModel):
 class EnrichedToolReturnList(BaseModel):
     tools: list[EnrichedToolReturnItem]
 
+# Code rule schemas (defined before EnrichedToolSchema since it's used there)
+class ToolCodeRule(BaseModel):
+    description: str
+    conditions: list[str] = Field(default_factory=list)
+    actions: list[str]
+
+class ToolCodeRuleList(BaseModel):
+    rules: list[ToolCodeRule]
+
 # Final enriched tool schema after parsing LLM responses
 class EnrichedToolSchema(BaseModel):
     name: str

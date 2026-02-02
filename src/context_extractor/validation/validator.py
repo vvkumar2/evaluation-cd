@@ -6,7 +6,7 @@ from pathlib import Path
 
 from ..schemas.tool_schema import EnrichedToolSchemaList
 from ..schemas.entity_schema import EnrichedEntitySchemaList
-from ..schemas.prompt_schema import StructuredSystemPromptExtraction, StructuredIntent
+from ..schemas.prompt_schema import StructuredIntentRule, StructuredSystemPromptExtraction, StructuredIntent
 
 
 class ValidationError:
@@ -85,7 +85,7 @@ class AgentTestValidator:
         outcomes_with_rules = set()
 
         # Validate each rule
-        for rule_idx, rule in enumerate(intent.rules):
+        for rule in intent.rules:
             rule_errors = self._validate_rule(rule, intent.name, valid_outcomes, self.entity_fields)
             errors.extend(rule_errors)
 
@@ -108,7 +108,7 @@ class AgentTestValidator:
 
     def _validate_rule(
         self,
-        rule,
+        rule: StructuredIntentRule,
         intent_name: str,
         valid_outcomes: set,
         entity_fields: dict,

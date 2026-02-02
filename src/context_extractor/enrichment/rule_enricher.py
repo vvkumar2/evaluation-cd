@@ -14,15 +14,15 @@ class RuleEnricher:
 
     def enrich_intent_rules(
         self,
-        intent: Intent,
-        entities: EntitySchemaList,
         tools: EnrichedToolSchemaList,
+        entities: EntitySchemaList,
+        intent: Intent,
     ) -> StructuredIntent:
         """Convert natural language rules to structured rules."""
         if not self.client:
             return self._intent_to_structured(intent, [])
 
-        structured_rules = self._enrich_rules(intent, entities, tools)
+        structured_rules = self._enrich_rules(tools, entities, intent)
 
         return StructuredIntent(
             name=intent.name,
@@ -36,9 +36,9 @@ class RuleEnricher:
 
     def _enrich_rules(
         self,
-        intent: Intent,
-        entities: EntitySchemaList,
         tools: EnrichedToolSchemaList,
+        entities: EntitySchemaList,
+        intent: Intent,
     ) -> list[StructuredIntentRule]:
         """Use LLM to convert natural language rules to structured rules."""
         entities_text = self._format_entities(entities)

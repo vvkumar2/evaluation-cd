@@ -9,6 +9,7 @@ from ..context_extractor.agent_loader import load_agent
 from ..context_extractor import AgentTestSpaceExtractor
 from ..context_extractor.validation import AgentTestValidator
 import yaml
+import traceback
 
 console = Console()
 
@@ -73,23 +74,23 @@ def extract(agent_dir, validate):
         console.print(f"\n[cyan]3. Running extraction pipeline...")
         with console.status("[cyan]Extracting tools, entities, intents, rules..."):
             extractor = AgentTestSpaceExtractor(llm_client=client)
-            extraction = extractor.extract_all(
+            tools, code_rules, entities, structured_prompt_extraction, validation_result = extractor.extract_all(
                 tools_schema=tools_schema,
                 entity_schema=entity_schema,
                 system_prompt=system_prompt,
+                agent_dir=agent_path,
             )
 
-        console.print(f"   [green]✓[/green] Step 1: Parsed {len(extraction['tools'].tools)} tools")
+        console.print(f"   [green]✓[/green] Step 1: Parsed {len(tools.tools)} tools")
         console.print(
-            f"   [green]✓[/green] Step 2: Parsed {len(extraction['entities'].entities)} entities"
+            f"   [green]✓[/green] Step 2: Parsed {len(entities.entities)} entities"
         )
         console.print(f"   [green]✓[/green] Step 3: Extracted intents/rules")
         console.print(f"   [green]✓[/green] Step 4: Enriched tools and entities")
         console.print(f"   [green]✓[/green] Step 5: Enriched rules to structured format")
         console.print(f"   [green]✓[/green] Step 6: Validated extraction")
 
-        if validate and "validation" in extraction:
-            validation_result = extraction["validation"]
+        if validate:
             console.print(
                 f"      Valid: [{'green' if validation_result.is_valid else 'red'}]{validation_result.is_valid}[/]"
             )
@@ -103,12 +104,11 @@ def extract(agent_dir, validate):
 
         output_dict = {
             "agent": {
-                "name": extraction["prompt"].agent_name,
-                "role": extraction["prompt"].agent_role,
+                "name": structured_prompt_extraction.agent_name,
+                "role": structured_prompt_extraction.agent_role,
             },
-            "tools": extraction["tools"].model_dump()["tools"],
-            "entities": extraction["entities"].model_dump()["entities"],
-            "intents": [i.model_dump() for i in extraction["prompt"].intents],
+            "code_rules": [r.model_dump() for r in code_rules.rules],
+            "intents": [i.model_dump() for i in structured_prompt_extraction.intents],
         }
 
         console.print(f"   [green]✓[/green] Converted to YAML format")
@@ -123,8 +123,7 @@ def extract(agent_dir, validate):
         console.print(f"   [green]✓[/green] File size: {output.stat().st_size} bytes")
 
         # Write validation errors to file if there are any
-        if validate and "validation" in extraction:
-            validation_result = extraction["validation"]
+        if validate:
             if validation_result.errors:
                 validator = AgentTestValidator()
                 validator.write_validation_errors(validation_result, output)
@@ -136,25 +135,14 @@ def extract(agent_dir, validate):
         summary = Table(title="Extraction Summary", show_header=True)
         summary.add_column("Component", style="cyan")
         summary.add_column("Count", justify="right", style="magenta")
-        summary.add_row("Tools", str(len(extraction["tools"].tools)))
-        summary.add_row("Entities", str(len(extraction["entities"].entities)))
-        summary.add_row("Intents", str(len(extraction["prompt"].intents)))
+        summary.add_row("Tools", str(len(tools.tools)))
+        summary.add_row("Code Rules", str(len(code_rules.rules)))
+        summary.add_row("Entities", str(len(entities.entities)))
+        summary.add_row("Intents", str(len(structured_prompt_extraction.intents)))
         console.print(summary)
 
-        console.print(
-            f"\n[green]✓ Output saved to:[/green] {output}\n"
-        )
-
-    except ImportError as e:
-        console.print(f"\n[red]✗ Import error:[/red] {e}")
-        console.print(
-            "[yellow]Hint:[/yellow] Make sure required dependencies are installed"
-        )
-        sys.exit(1)
     except Exception as e:
         console.print(f"\n[red]✗ Extraction failed:[/red] {e}")
-        import traceback
-
         traceback.print_exc()
         sys.exit(1)
 

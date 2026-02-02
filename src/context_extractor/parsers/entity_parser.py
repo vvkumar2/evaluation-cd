@@ -5,14 +5,8 @@ from ..schemas.entity_schema import (
 )
 
 
-def parse_entity_schema(entity_data: dict | list) -> EntitySchemaList:
-    entities_list = entity_data.get("entities", [entity_data])
-    parsed_entities = []
-    for entity_def in entities_list:
-        parsed_entity = _parse_single_entity(entity_def)
-        parsed_entities.append(parsed_entity)
-
-    return EntitySchemaList(entities=parsed_entities)
+def parse_entity_schema(entity_data: dict) -> EntitySchemaList:
+    return EntitySchemaList(entities=[_parse_single_entity(entity_def) for entity_def in entity_data["entities"]])
 
 
 def _parse_single_entity(entity_def: dict) -> EntitySchema:
