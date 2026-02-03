@@ -6,6 +6,7 @@ from typing import Optional
 from ..schemas.tool_schema import ToolSchemaList, EnrichedToolSchema, EnrichedToolSchemaList, ToolReturn, ToolCodeRule, ToolCodeRuleList, ToolSchema
 from ..schemas.entity_schema import EntitySchemaList, EnrichedEntitySchema, EnrichedEntitySchemaList, EntityThreshold, EnrichedEntityThresholdList
 from ..schemas.prompt_schema import SystemPromptExtraction
+from ..templates import TOOL_RETURN_SCHEMA_PROMPT, CODE_RULES_EXTRACTION_PROMPT, ENTITY_THRESHOLDS_EXTRACTION_PROMPT
 
 
 class AgentEnricher:
@@ -52,28 +53,12 @@ class AgentEnricher:
     ) -> EnrichedToolSchema:
         tool_text = self._format_tool(tool)
         code_section = "" if not tool_code else f"\n\nTool Implementation Code:\n```python\n{tool_code}\n```"
-        llm_return_prompt = f"""Given this tool, entities, and agent intents, infer the return schema for the tool.
-
-Tool:
-{tool_text}{code_section}
-
-Entities:
-{entities_text}
-
-Determine:
-1. Return type: "entity" (if returns entity data), "boolean" (if yes/no), "string" (if text/decision), "number" (if numeric), "array" (if list), or "object"
-2. If type is "entity", specify which entity name
-3. Brief description of what the tool returns
-
-Respond with valid JSON matching this structure:
-{{
-  "name": "{tool.name}",
-  "returns": {{
-    "type": "entity|boolean|string|number|array|object",
-    "entity_name": "entity_name or null",
-    "description": "what this returns"
-  }}
-}}"""
+        llm_return_prompt = TOOL_RETURN_SCHEMA_PROMPT.format(
+            tool_text=tool_text,
+            code_section=code_section,
+            entities_text=entities_text,
+            tool_name=tool.name,
+        )
 
         return_response = self._call_llm(llm_return_prompt)
         enriched_tool = self._parse_single_tool_response(return_response, tool)
@@ -93,40 +78,11 @@ Respond with valid JSON matching this structure:
         business_logic_code = self._extract_business_logic_code(tool_code, tools_py_path)
         tool_text = self._format_tool(tool)
         all_code = tool_code if not business_logic_code else f"{tool_code}\n\n{business_logic_code}"
-        llm_code_rules_prompt = f"""Analyze the code below and extract ONLY meaningful business rules that define actual business logic and decision-making.
-
-IGNORE implementation details such as type conversions, error handling, and variable assignments that are just data transformations.
-
-ONLY extract rules that represent actual business logic and decision-making (e.g., "orders over $50 get free shipping"). Be sure to replace constants with their actual values.
-
-Tool:
-{tool_text}
-
-Code:
-```python
-{all_code}
-```
-
-Entities:
-{entities_text}
-
-For each meaningful business rule, provide:
-- description: A clear description of the business rule (focus on WHAT the rule is, not HOW it's implemented)
-- conditions: List of business conditions that trigger this rule (e.g., ["order_total >= 50", "customer_tier == 'platinum'", "order_status == 'pending'"])
-- actions: List of outcomes of the rule (e.g., ["free shipping", "refund approved", "order can be cancelled"])
-
-Respond with valid JSON matching this structure:
-{{
-  "rules": [
-    {{
-      "description": "what this rule is",
-      "conditions": ["condition1", "condition2"],
-      "actions": ["outcome1", "outcome2"]
-    }}
-  ]
-}}
-
-If no meaningful business rules are found (only implementation details), return an empty rules array: {{"rules": []}}"""
+        llm_code_rules_prompt = CODE_RULES_EXTRACTION_PROMPT.format(
+            tool_text=tool_text,
+            all_code=all_code,
+            entities_text=entities_text,
+        )
 
         response = self._call_llm(llm_code_rules_prompt)
         return self._parse_code_rules_response(response)
@@ -327,31 +283,10 @@ If no meaningful business rules are found (only implementation details), return 
         """Enrich entities with thresholds using LLM."""
         entities_text = self._format_entities(entities)
 
-        llm_prompt = f"""Extract ALL thresholds and decision boundaries for each entity from the system prompt and business rules below.
-Use detailed threshold names formatted in snake_case and use the exact values as they appear in the system prompt and rules. Include the unit if mentioned.
-
-Entities:
-{entities_text}
-
-System Prompt:
-{system_prompt}
-
-Respond with valid JSON matching the following example structure for each entity:
-{{
-  "entities": [
-    {{
-      "name": "customer",
-      "thresholds": [
-        {{
-          "name": "standard_refund_window_days",
-          "value": 30,
-          "description": "Number of days in the refund window",
-          "unit": "days"
-        }}
-      ]
-    }}
-  ]
-}}"""
+        llm_prompt = ENTITY_THRESHOLDS_EXTRACTION_PROMPT.format(
+            entities_text=entities_text,
+            system_prompt=system_prompt,
+        )
         response = self._call_llm(llm_prompt)
         enriched = self._parse_entities_response(response, entities)
         return enriched

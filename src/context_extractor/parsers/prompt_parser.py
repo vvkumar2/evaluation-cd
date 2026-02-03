@@ -8,6 +8,7 @@ from ..schemas.prompt_schema import (
 )
 from ..schemas.tool_schema import EnrichedToolSchemaList, ToolCodeRuleList
 from ..schemas.entity_schema import EnrichedEntitySchemaList
+from ..templates import INTENT_EXTRACTION_PROMPT, AGENT_IDENTITY_EXTRACTION_PROMPT
 
 class SystemPromptParser:
     """Extracts intents from system prompts using LLM analysis."""
@@ -54,77 +55,22 @@ class SystemPromptParser:
         system_prompt: str,
     ) -> str:
         """Build LLM prompt for intent extraction."""
-        # entities_context = self._format_entities_context(entities)
         tools_context = self._format_tools_context(tools)
         code_rules_context = "\n".join(f"- {rule.description}" for rule in code_rules.rules)
         source_options = "user_input"
         if tools.tools:
             source_options += " | " + " | ".join(tool.name for tool in tools.tools)
 
-        return f"""Extract all agent intents from its system prompt, available tools, and rules from its code. An intent is a goal or task the agent can help with.
-
-## SYSTEM PROMPT
-{system_prompt}
-
-## AVAILABLE TOOLS
-{tools_context}
-
-## BUSINESS RULES PARSED FROM CODE
-{code_rules_context}
-
-Each intent must be a single goal or task the agent can help with. For each intent, extract the following:
-- name: Intent name (e.g., 'process_refund')
-- description: What this intent does
-- required_slots: Information the agent needs to fulfill this intent (with their sources)
-- workflow: Step-by-step process the agent will follow to fulfill this intent
-- rules: All rules including precondition checks, business logic, conditional logic, and invalid input tests (e.g., rules for missing required fields, validation checks, business logic)
-- requires_confirmation: Whether the agent should ask for confirmation before fulfilling this intent
-- outcomes: Possible outcomes - use the actual return values from the tools used in this intent's workflow
-
-Return a JSON array of intents:
-```json
-[
-  {{
-    "name": "string",
-    "description": "string",
-    "required_slots": [
-        {{
-        "slot_name": "entity_name_in_snake_case",
-        "source": "{source_options}"
-        }}
-    ],
-    "workflow": ["string"],
-    "rules": [
-        {{
-        "description": "string",
-        "conditions": ["conditions to check"],
-        "actions": ["what to do if conditions are met"]
-        }}
-    ],
-    "requires_confirmation": boolean,
-    "outcomes": [
-        {{
-        "outcome_name": "string",
-        "description": "string",
-        }}
-    ]
-  }}
-]
-```
-"""
+        return INTENT_EXTRACTION_PROMPT.format(
+            system_prompt=system_prompt,
+            tools_context=tools_context,
+            code_rules_context=code_rules_context,
+            source_options=source_options,
+        )
 
     def _extract_agent_identity(self, system_prompt: str) -> tuple[str, str]:
         """Use LLM to extract agent's name and role."""
-        prompt = f"""Extract the agent's name and role from this system prompt.
-
-System Prompt:
-{system_prompt}
-
-Respond with a JSON object:
-{{
-  "name": "string",
-  "role": "string"
-}}"""
+        prompt = AGENT_IDENTITY_EXTRACTION_PROMPT.format(system_prompt=system_prompt)
 
         response = self._call_llm(prompt)
 
