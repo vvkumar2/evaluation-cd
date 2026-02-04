@@ -4,13 +4,11 @@ LangChain tools for the customer service agent.
 Exposes business logic and backend service as callable tools for the LLM.
 """
 
-from typing import Optional
 from langchain.tools import tool
 
 from backend_service import BackendService
 from business_logic.refund_processor import RefundProcessor, CustomerTier, RefundStatus
 from business_logic.order_manager import OrderManager, OrderStatus, ShippingSpeed
-
 
 # Initialize services
 backend_service = BackendService()
@@ -38,11 +36,11 @@ def lookup_order(order_id: str) -> str:
 
     return (
         f"Order Details:\n"
-        f"  ID: {order['id']}\n"
-        f"  Customer: {customer_name} ({order['customer_id']})\n"
-        f"  Amount: ${order['price']:.2f}\n"
-        f"  Status: {order['status']}\n"
-        f"  Days since delivery: {order['delivered_date_days_ago']}"
+        f"ID: {order['id']}\n"
+        f"Customer: {customer_name} ({order['customer_id']})\n"
+        f"Amount: ${order['price']:.2f}\n"
+        f"Status: {order['status']}\n"
+        f"Days since delivery: {order['delivered_date_days_ago']}"
     )
 
 
@@ -57,7 +55,11 @@ def get_customer_orders(customer_id: str) -> str:
     Returns:
         List of customer's orders as a formatted string
     """
-    orders = [order for order in backend_service.orders.values() if order["customer_id"] == customer_id]
+    orders = [
+        order
+        for order in backend_service.orders.values()
+        if order["customer_id"] == customer_id
+    ]
 
     if not orders:
         return f"No orders found for customer {customer_id}."
@@ -65,7 +67,7 @@ def get_customer_orders(customer_id: str) -> str:
     orders_text = f"Orders for customer {customer_id}:\n"
     for order in orders:
         orders_text += (
-            f"  - {order['id']}: ${order['price']:.2f}, Status: {order['status']}, "
+            f"- {order['id']}: ${order['price']:.2f}, Status: {order['status']}, "
             f"Delivered {order['delivered_date_days_ago']} days ago\n"
         )
 
@@ -89,10 +91,10 @@ def lookup_customer(customer_id: str) -> str:
 
     return (
         f"Customer Details:\n"
-        f"  ID: {customer['id']}\n"
-        f"  Name: {customer['name']}\n"
-        f"  Tier: {customer['tier'].upper()}\n"
-        f"  Email: {customer['email']}"
+        f"ID: {customer['id']}\n"
+        f"Name: {customer['name']}\n"
+        f"Tier: {customer['tier'].upper()}\n"
+        f"Email: {customer['email']}"
     )
 
 
@@ -102,7 +104,6 @@ def process_refund_request(
     customer_tier: str,
     order_total: float,
     days_since_delivery: int,
-    reason: str,
     is_damaged: bool = False,
 ) -> str:
     """
@@ -113,7 +114,6 @@ def process_refund_request(
         customer_tier: Customer tier (standard, gold, or platinum)
         order_total: Total order amount in dollars
         days_since_delivery: Days since the order was delivered
-        reason: Reason for the refund (e.g., "damaged", "changed_mind", etc.)
         is_damaged: Whether the item arrived damaged
 
     Returns:
@@ -133,7 +133,6 @@ def process_refund_request(
             customer_tier=tier_enum,
             order_total=order_total,
             days_since_delivery=days_since_delivery,
-            reason=reason,
             is_damaged=is_damaged,
         )
 

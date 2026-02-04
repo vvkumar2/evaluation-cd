@@ -1,236 +1,185 @@
-"""
-AgentEval CLI - AI Agent Testing Platform
-
-Commands:
-- parse: Analyze codebase and extract agent capabilities
-- generate: Generate test cases from parsed capabilities or codebase
-- evaluate: Run tests against an agent and score the results
-"""
-
-import click
-import json
-import os
+import sys
+import traceback
 from pathlib import Path
+import click
+import yaml
+from dotenv import load_dotenv
+from openai import OpenAI
 from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
-
-from ..analyzer.comprehensive_parser import ComprehensiveParser
+from ..context_extractor import AgentTestSpaceExtractor
+from ..context_extractor.agent_loader import load_agent
+from ..context_extractor.validation import AgentTestValidator
 
 console = Console()
 
 
 @click.group()
-@click.version_option(version='0.2.0')
+@click.version_option(version="0.3.0")
 def cli():
-    """
-    AgentEval - AI Agent Testing Platform
-
-    Parse codebases and generate LLM-powered test cases for AI agents.
-    """
-    pass
+    """Entry point for AgentEval CLI."""
+    load_dotenv()
 
 
 @cli.command()
 @click.option(
-    '--codebase',
+    "--agent-dir",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
     required=True,
-    help='Path to agent codebase directory'
+    help="Path to agent directory (must contain: agent.py, tools.py, entity_schema.yml)",
 )
 @click.option(
-    '--business-logic',
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    required=True,
-    help='Path to business_logic.yaml file describing agent capabilities'
+    "--validate",
+    is_flag=True,
+    default=True,
+    help="Validate extracted outputs (default: True)",
 )
-@click.option(
-    '--output',
-    type=click.Path(),
-    default='tests/parsing/parsed_codebase.json',
-    help='Output file for parsed capabilities (JSON format)'
-)
-def parse(codebase, business_logic, output):
+def extract(agent_dir, validate):
     """
-    Parse agent codebase and extract complete capabilities.
-
-    Analyzes Python code to extract:
-    - Business rules and policies
-    - All execution paths through functions
-    - Decision points and branches
-    - Constants and validation rules
-
-    Example:
-        agenteval parse --codebase ./my-agent --business-logic ./business_logic.yaml --output capabilities.json
+    Extract complete test input space from an agent.
     """
-    console.print("\n[bold cyan]AgentEval - Codebase Parser[/bold cyan]")
+    console.print("\n[bold cyan]AgentEval - Test Input Space Extractor[/bold cyan]")
     console.print("=" * 70)
 
-    codebase_path = Path(codebase)
-    output_path = Path(output)
-    business_logic_path = Path(business_logic) if business_logic else None
+    agent_path = Path(agent_dir)
+    agent_name = agent_path.name
+    output = Path("tests/extraction") / f"{agent_name}_extraction.yml"
 
-    # Parse
-    console.print(f"\n[cyan]Parsing codebase:[/cyan] {codebase_path}")
-    if business_logic_path:
-        console.print(f"[cyan]Business logic:[/cyan] {business_logic_path}")
+    try:
+        # Load agent data
+        tools_schema, entity_schema, system_prompt = _load_agent_data(agent_path)
 
-    parser = ComprehensiveParser()
-    capabilities = parser.parse(codebase_path, business_logic_path)
+        # Initialize LLM client
+        client = _init_llm_client()
 
-    # Summary
-    console.print("\n[bold green]✓ Parsing Complete[/bold green]\n")
+        # Run extraction pipeline
+        tools, code_rules, entities, structured_prompt_extraction, validation_result = (
+            _run_extraction(
+                client, tools_schema, entity_schema, system_prompt, agent_path
+            )
+        )
 
-    total_paths = sum(len(w.paths) for w in capabilities.workflows)
+        # Print extraction steps
+        _print_extraction_steps()
 
-    summary_table = Table(title="Extracted Capabilities")
-    summary_table.add_column("Component", style="cyan")
-    summary_table.add_column("Count", justify="right", style="magenta")
-    summary_table.add_row("Workflows", str(len(capabilities.workflows)))
-    summary_table.add_row("Total Paths", str(total_paths))
-    summary_table.add_row("Constants", str(len(capabilities.constants)))
+        if validate:
+            color = "green" if validation_result.is_valid else "red"
+            console.print(
+                f"[green]✓[/green] Valid: [{color}]{validation_result.is_valid}[/]"
+            )
+            if validation_result.errors:
+                console.print(
+                    f"[yellow]⚠[/yellow] Errors: [yellow]{len(validation_result.errors)}[/]"
+                )
 
-    console.print(summary_table)
+        # Convert to YAML and save
+        console.print("\n[cyan]7. Converting to YAML format...")
+        output_dict = {
+            "agent": {
+                "name": structured_prompt_extraction.agent_name,
+                "role": structured_prompt_extraction.agent_role,
+            },
+            "tests": [i.model_dump() for i in structured_prompt_extraction.intents],
+        }
+        console.print("[green]✓[/green] Converted to YAML format")
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+        console.print("\n[cyan]8. Saving results...")
+        _save_extraction_results(output_dict, output)
 
-    data = parser.export_to_dict()
+        # Handle validation errors
+        if validate:
+            _handle_validation_errors(validation_result, output)
 
-    with open(output_path, 'w') as f:
-        json.dump(data, f, indent=2)
+        # Print summary
+        _print_summary(tools, code_rules, entities, structured_prompt_extraction)
 
-    console.print(f"\n[green]✓ Saved to:[/green] {output_path}")
-
-
-@cli.command()
-@click.option(
-    '--parsed-capabilities',
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    required=True,
-    help='Path to parsed capabilities JSON file'
-)
-@click.option(
-    '--output',
-    type=click.Path(),
-    default='tests/generation/generated_tests.yaml',
-    help='Output file for generated tests (YAML format)'
-)
-def generate(parsed_capabilities, output):
-    """
-    Generate test cases from parsed capabilities.
-
-    Uses LLM to create realistic customer messages and expected outcomes
-    for each execution path.
-
-    Example:
-        agenteval generate --parsed-capabilities tests/parsed_codebase.json --output my_tests.yaml
-    """
-    console.print("\n[bold cyan]AgentEval - Test Generator[/bold cyan]")
-    console.print("=" * 70)
-
-    parsed_path = Path(parsed_capabilities)
-    output_path = Path(output)
-
-    console.print(f"\n[cyan]Loading capabilities from:[/cyan] {parsed_path}")
-
-    # Import here to avoid architecture issues on systems without proper openai setup
-    from ..generator.test_generator import TestGenerator
-
-    # Generate tests
-    generator = TestGenerator(model="gpt-4o-mini")
-
-    with console.status("[cyan]Generating tests with LLM...\n"):
-        tests = generator.generate_from_file(parsed_path)
-
-    console.print(f"\n[bold green]✓ Generated {len(tests)} tests[/bold green]\n")
-
-    # Show breakdown by capability
-    capability_counts = {}
-    for test in tests:
-        cap = test.get('capability', 'unknown')
-        capability_counts[cap] = capability_counts.get(cap, 0) + 1
-
-    breakdown_table = Table(title="Tests by Capability")
-    breakdown_table.add_column("Capability", style="cyan")
-    breakdown_table.add_column("Count", justify="right", style="magenta")
-
-    for cap, count in capability_counts.items():
-        breakdown_table.add_row(cap, str(count))
-
-    console.print(breakdown_table)
-
-    # Save tests
-    generator.save_tests(tests, output_path)
-
-    console.print(f"\n[green]✓ Tests saved to:[/green] {output_path}")
-
-    # Show sample test
-    if tests:
-        console.print(f"\n[bold]Sample Test:[/bold]")
-        sample = tests[0]
-        console.print(Panel(
-            f"[cyan]Capability:[/cyan] {sample.get('capability', 'N/A')}\n"
-            f"[cyan]Path ID:[/cyan] {sample.get('path_id', 'N/A')}\n\n"
-            f"[cyan]Customer Message:[/cyan]\n{sample.get('customer_message', 'N/A')}\n\n"
-            f"[cyan]Expected Outcome:[/cyan]\n{sample.get('expected_outcome', 'N/A')}",
-            border_style="green"
-        ))
+    except Exception as e:
+        console.print(f"\n[red]✗ Extraction failed:[/red] {e}")
+        traceback.print_exc()
+        sys.exit(1)
 
 
-@cli.command()
-@click.option(
-    '--tests',
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    required=True,
-    help='Path to test cases YAML file'
-)
-@click.option(
-    '--agent',
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    required=True,
-    help='Path to agent script (e.g., agent.py)'
-)
-@click.option(
-    '--output',
-    type=click.Path(),
-    default='tests/evaluation/evaluation.yaml',
-    help='Output file for results (YAML format)'
-)
-def evaluate(tests, agent, output):
-    """
-    Run test cases against an agent and score the results.
+def _load_agent_data(agent_path):
+    """Load agent tools, entities, and system prompt."""
+    console.print(f"\n[cyan]1. Loading agent from:[/cyan] {agent_path}")
+    with console.status("[cyan]Loading tools, entities, system prompt..."):
+        agent_data = load_agent(agent_path)
+        tools_schema = agent_data["tools_schema"]
+        entity_schema = agent_data["entity_schema"]
+        system_prompt = agent_data["system_prompt"]
 
-    Loads generated test cases, runs them against the specified agent,
-    and scores each response using LLM comparison.
-
-    Example:
-        agenteval evaluate --tests tests/generation/generated_tests.yaml --agent example_agents/sample_cs_agent_langchain/agent.py
-    """
-    console.print("\n[bold cyan]AgentEval - Test Evaluation[/bold cyan]")
-    console.print("=" * 70)
-
-    tests_path = Path(tests)
-    agent_path = Path(agent)
-    output_path = Path(output)
-
-    console.print(f"\n[cyan]Tests:[/cyan] {tests_path}")
-    console.print(f"[cyan]Agent:[/cyan] {agent_path}")
-    console.print(f"[cyan]Output:[/cyan] {output_path}")
-
-    # Import here to avoid issues if runner dependencies aren't installed
-    from ..runner.test_runner import TestRunner
-
-    # Run tests
-    with console.status("[cyan]Running tests and scoring...\n"):
-        runner = TestRunner(agent_path)
-        runner.run_tests(tests_path)
-        runner.save_results(output_path)
-
-    # Print summary
-    runner.print_summary()
-
-    console.print(f"\n[green]✓ Results saved to:[/green] {output_path}")
+    console.print(f"[green]✓[/green] Loaded {len(tools_schema['tools'])} tools")
+    console.print(f"[green]✓[/green] Loaded {len(entity_schema['entities'])} entities")
+    console.print(f"[green]✓[/green] Loaded system prompt ({len(system_prompt)} chars)")
+    return tools_schema, entity_schema, system_prompt
 
 
-if __name__ == '__main__':
+def _init_llm_client():
+    """Initialize OpenAI client."""
+    console.print("\n[cyan]2. Initializing LLM client...")
+    try:
+        client = OpenAI()
+        console.print("[green]✓[/green] OpenAI client ready")
+        return client
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to initialize OpenAI: {e}")
+        console.print("[yellow]Hint:[/yellow] Set OPENAI_API_KEY environment variable")
+        sys.exit(1)
+
+
+def _run_extraction(client, tools_schema, entity_schema, system_prompt, agent_path):
+    """Run extraction pipeline."""
+    console.print("\n[cyan]3. Running extraction pipeline...")
+    with console.status("[cyan]Extracting tools, entities, intents, rules..."):
+        extractor = AgentTestSpaceExtractor(llm_client=client)
+        return extractor.extract_all(
+            tools_schema=tools_schema,
+            entity_schema=entity_schema,
+            system_prompt=system_prompt,
+            agent_dir=agent_path,
+        )
+
+
+def _print_extraction_steps():
+    """Print extraction pipeline steps."""
+    console.print("[green]✓[/green] Step 1: Parsed tools")
+    console.print("[green]✓[/green] Step 2: Parsed entities")
+    console.print("[green]✓[/green] Step 3: Extracted tests")
+    console.print("[green]✓[/green] Step 4: Enriched tools and entities")
+    console.print("[green]✓[/green] Step 5: Enriched tests to structured format")
+    console.print("[green]✓[/green] Step 6: Validated extraction")
+
+
+def _save_extraction_results(output_dict, output):
+    """Save extraction results to YAML file."""
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with open(output, "w") as f:
+        yaml.dump(output_dict, f, default_flow_style=False, sort_keys=False)
+    console.print(f"[green]✓[/green] Results saved to: {output}")
+    console.print(f"[green]✓[/green] File size: {output.stat().st_size} bytes")
+
+
+def _handle_validation_errors(validation_result, output):
+    """Handle and write validation errors."""
+    if validation_result.errors:
+        validator = AgentTestValidator()
+        validator.write_validation_errors(validation_result, output)
+        error_path = output.parent / f"{output.stem}_errors.json"
+        console.print(f"[yellow]⚠[/yellow] Validation errors written to: {error_path}")
+
+
+def _print_summary(tools, code_rules, entities, structured_prompt_extraction):
+    """Print extraction summary table."""
+    console.print("\n[bold green]✓ Extraction Complete![/bold green]")
+    summary = Table(title="Extraction Summary", show_header=True)
+    summary.add_column("Component", style="cyan")
+    summary.add_column("Count", justify="right", style="magenta")
+    summary.add_row("Tools", str(len(tools.tools)))
+    summary.add_row("Code Rules", str(len(code_rules.rules)))
+    summary.add_row("Entities", str(len(entities.entities)))
+    summary.add_row("Intents", str(len(structured_prompt_extraction.intents)))
+    console.print(summary)
+
+
+if __name__ == "__main__":
     cli()

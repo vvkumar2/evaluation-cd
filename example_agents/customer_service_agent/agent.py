@@ -13,7 +13,7 @@ import sys
 import os
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from tools import get_tools
 
 load_dotenv()
@@ -52,6 +52,30 @@ Be concise but thorough in your responses. Help resolve customer issues while pr
 """
 
 
+def _execute_tool(tool_call: dict, tool_map: dict) -> str:
+    """
+    Execute a single tool call and return the result.
+
+    Args:
+        tool_call: The tool call dict with name, args, and id
+        tool_map: Mapping of tool names to tool functions
+
+    Returns:
+        Tool result as a string
+    """
+    tool_name = tool_call["name"]
+    tool_args = tool_call["args"]
+
+    if tool_name not in tool_map:
+        return f"Tool {tool_name} not found"
+
+    tool = tool_map[tool_name]
+    try:
+        return tool.func(**tool_args)
+    except Exception as e:
+        return f"Error calling tool: {str(e)}"
+
+
 def handle_message(message: str, context: dict = None) -> str:
     """
     Process a customer message and return the agent's response.
@@ -73,10 +97,8 @@ def handle_message(message: str, context: dict = None) -> str:
         openai_api_key=os.getenv("OPENAI_API_KEY"),
     )
 
-    # Get available tools
+    # Get available tools and create mapping
     tools = get_tools()
-
-    # Create a mapping of tool names to tool functions
     tool_map = {tool.name: tool for tool in tools}
 
     # Bind tools to the LLM
@@ -92,49 +114,30 @@ def handle_message(message: str, context: dict = None) -> str:
         # Prepare the messages for the agent
         messages = [
             SystemMessage(content=SYSTEM_PROMPT),
-            HumanMessage(content=enhanced_message)
+            HumanMessage(content=enhanced_message),
         ]
 
         # Agentic loop - keep calling until we get a final response
         max_iterations = 10
-        iteration = 0
-
-        while iteration < max_iterations:
-            iteration += 1
-
+        for _ in range(max_iterations):
             # Call the LLM
             response = llm_with_tools.invoke(messages)
 
             # If the LLM didn't call any tools, return the response
             if not response.tool_calls:
                 # Extract text content
-                if hasattr(response, 'content'):
+                if hasattr(response, "content"):
                     return response.content
-                else:
-                    return str(response)
+                return str(response)
 
             # Process tool calls
             messages.append(response)
 
             for tool_call in response.tool_calls:
-                tool_name = tool_call['name']
-                tool_args = tool_call['args']
-
-                # Get the tool function
-                if tool_name not in tool_map:
-                    tool_result = f"Tool {tool_name} not found"
-                else:
-                    tool = tool_map[tool_name]
-                    try:
-                        tool_result = tool.func(**tool_args)
-                    except Exception as e:
-                        tool_result = f"Error calling tool: {str(e)}"
-
-                # Add tool result to messages
-                messages.append(ToolMessage(
-                    content=tool_result,
-                    tool_call_id=tool_call['id']
-                ))
+                tool_result = _execute_tool(tool_call, tool_map)
+                messages.append(
+                    ToolMessage(content=tool_result, tool_call_id=tool_call["id"])
+                )
 
         # If we hit max iterations, return what we have
         return "I apologize, but I took too long to process your request. Please try again."
@@ -162,7 +165,9 @@ def main():
         context = input_data.get("context", {})
 
         if not message:
-            print("I need a message to help you. Could you please provide more details?")
+            print(
+                "I need a message to help you. Could you please provide more details?"
+            )
             return
 
         # Process message with agent
@@ -172,7 +177,9 @@ def main():
         print(response)
 
     except json.JSONDecodeError:
-        print("I apologize, but I couldn't understand the input format. Please provide valid JSON.")
+        print(
+            "I apologize, but I couldn't understand the input format. Please provide valid JSON."
+        )
         sys.exit(1)
     except Exception as e:
         print(f"I apologize, but I'm experiencing technical difficulties: {str(e)}")
