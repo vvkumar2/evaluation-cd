@@ -92,7 +92,7 @@ class RuleEnricher:
             lines.append(f"\n{tool.name}:")
             lines.append(f"Description: {tool.description}")
             if tool.parameters:
-                lines.append(f"Parameters:")
+                lines.append("Parameters:")
                 for param in tool.parameters:
                     lines.append(f"- {param.name} ({param.type}): {param.description}")
         return "\n".join(lines)

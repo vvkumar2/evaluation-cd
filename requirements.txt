@@ -2,12 +2,8 @@
 pyyaml>=6.0
 python-dotenv>=1.0.0
 
-# Code analysis
-ast-comments>=1.1.2
-
 # LLM providers
-openai>=1.12.0
-anthropic>=0.18.0
+openai>=2.0.0
 
 # LangChain
 langchain>=1.0.0
@@ -21,3 +17,7 @@ rich>=13.7.0
 # Testing
 pytest>=7.4.0
 pytest-cov>=4.1.0
+
+# Formatting
+pylint>=4.0.0
+black>=26.0.0
