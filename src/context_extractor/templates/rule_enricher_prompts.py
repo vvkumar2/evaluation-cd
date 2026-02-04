@@ -76,7 +76,7 @@ Convert ONLY these rules into structured format. For each rule, include:
 - **description**: When this rule applies
 - **conditions**: List of conditions that must be true
 - **outcome**: The outcome this rule leads to
-- **expected_behavior**: What the agent should do/say when this rule matches (this is used to evaluate if the agent behaves correctly)
+- **expected_behavior**: What the agent should do/say when this rule matches (this is used to evaluate if the agent behaves correctly). Include quantitative details when possible.
 
 Output valid JSON:
 {{

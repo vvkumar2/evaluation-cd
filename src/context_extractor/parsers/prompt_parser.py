@@ -10,6 +10,7 @@ from ..schemas.tool_schema import EnrichedToolSchemaList, ToolCodeRuleList
 from ..schemas.entity_schema import EnrichedEntitySchemaList
 from ..templates import INTENT_EXTRACTION_PROMPT, AGENT_IDENTITY_EXTRACTION_PROMPT
 
+
 class SystemPromptParser:
     """Extracts intents from system prompts using LLM analysis."""
 
@@ -42,7 +43,9 @@ class SystemPromptParser:
         system_prompt: str,
     ) -> list[Intent]:
         """Use LLM to identify goals and tasks the agent can help with."""
-        prompt = self._build_intent_extraction_prompt(tools, code_rules, entities, system_prompt)
+        prompt = self._build_intent_extraction_prompt(
+            tools, code_rules, entities, system_prompt
+        )
         response = self._call_llm(prompt)
         intents = self._parse_intent_response(response)
         return intents
@@ -56,7 +59,9 @@ class SystemPromptParser:
     ) -> str:
         """Build LLM prompt for intent extraction."""
         tools_context = self._format_tools_context(tools)
-        code_rules_context = "\n".join(f"- {rule.description}" for rule in code_rules.rules)
+        code_rules_context = "\n".join(
+            f"- {rule.description}" for rule in code_rules.rules
+        )
         source_options = "user_input"
         if tools.tools:
             source_options += " | " + " | ".join(tool.name for tool in tools.tools)
@@ -160,7 +165,14 @@ class SystemPromptParser:
         return intents
 
     def _format_tools_context(self, tools: EnrichedToolSchemaList) -> str:
-        return "\n".join(f"- {tool.name}: {tool.description}" + f" -> {tool.returns.type}" if tool.returns else "" for tool in tools.tools)
+        return "\n".join(
+            (
+                f"- {tool.name}: {tool.description}" + f" -> {tool.returns.type}"
+                if tool.returns
+                else ""
+            )
+            for tool in tools.tools
+        )
         # """Brief tool summary - name, description, returns."""
         # lines = []
         # for tool in tools.tools:
@@ -185,6 +197,8 @@ class SystemPromptParser:
                         line += f" (enum: {field.enum})"
             if entity.thresholds:
                 for threshold in entity.thresholds:
-                    line += f" {threshold.name}: {threshold.value} {threshold.unit or ''}"
+                    line += (
+                        f" {threshold.name}: {threshold.value} {threshold.unit or ''}"
+                    )
             lines.append(line)
         return "\n".join(lines)

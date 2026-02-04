@@ -6,7 +6,11 @@ from pathlib import Path
 
 from ..schemas.tool_schema import EnrichedToolSchemaList
 from ..schemas.entity_schema import EnrichedEntitySchemaList
-from ..schemas.prompt_schema import StructuredIntentRule, StructuredSystemPromptExtraction, StructuredIntent
+from ..schemas.prompt_schema import (
+    StructuredIntentRule,
+    StructuredSystemPromptExtraction,
+    StructuredIntent,
+)
 
 
 class ValidationError:
@@ -49,7 +53,18 @@ class AgentTestValidator:
         self.tool_names = set()
         self.entity_names = set()
         self.entity_fields = {}
-        self.valid_operators = {"eq", "ne", "lt", "lte", "gt", "gte", "in", "not_in", "exists", "missing"}
+        self.valid_operators = {
+            "eq",
+            "ne",
+            "lt",
+            "lte",
+            "gt",
+            "gte",
+            "in",
+            "not_in",
+            "exists",
+            "missing",
+        }
 
     def validate_parsed_output(
         self,
@@ -86,11 +101,15 @@ class AgentTestValidator:
 
         # Validate each rule
         for rule in intent.rules:
-            rule_errors = self._validate_rule(rule, intent.name, valid_outcomes, self.entity_fields)
+            rule_errors = self._validate_rule(
+                rule, intent.name, valid_outcomes, self.entity_fields
+            )
             errors.extend(rule_errors)
 
             # Track which outcomes have rules
-            if not any(e.error_type == "invalid_outcome_reference" for e in rule_errors):
+            if not any(
+                e.error_type == "invalid_outcome_reference" for e in rule_errors
+            ):
                 outcomes_with_rules.add(rule.outcome)
 
         # Check outcome coverage
@@ -122,7 +141,11 @@ class AgentTestValidator:
                 ValidationError(
                     "invalid_outcome_reference",
                     f"Rule '{rule.id}' in intent '{intent_name}' references unknown outcome '{rule.outcome}'",
-                    {"intent_name": intent_name, "rule_id": rule.id, "outcome": rule.outcome},
+                    {
+                        "intent_name": intent_name,
+                        "rule_id": rule.id,
+                        "outcome": rule.outcome,
+                    },
                 )
             )
 
@@ -138,7 +161,9 @@ class AgentTestValidator:
 
         # Validate each condition
         for cond_idx, condition in enumerate(rule.conditions):
-            cond_errors = self._validate_condition(condition, rule.id, intent_name, entity_fields)
+            cond_errors = self._validate_condition(
+                condition, rule.id, intent_name, entity_fields
+            )
             errors.extend(cond_errors)
 
         return errors
@@ -159,7 +184,11 @@ class AgentTestValidator:
                 ValidationError(
                     "invalid_operator",
                     f"Condition in rule '{rule_id}' has invalid operator '{condition.operator}'",
-                    {"intent_name": intent_name, "rule_id": rule_id, "operator": condition.operator},
+                    {
+                        "intent_name": intent_name,
+                        "rule_id": rule_id,
+                        "operator": condition.operator,
+                    },
                 )
             )
 
@@ -193,7 +222,11 @@ class AgentTestValidator:
                     ValidationError(
                         "invalid_entity_reference",
                         f"Rule '{rule_id}' references unknown entity '{entity_name}' in field '{field_ref}'",
-                        {"intent_name": intent_name, "rule_id": rule_id, "field": field_ref},
+                        {
+                            "intent_name": intent_name,
+                            "rule_id": rule_id,
+                            "field": field_ref,
+                        },
                     )
                 )
             # Check field exists in entity
@@ -202,14 +235,20 @@ class AgentTestValidator:
                     ValidationError(
                         "invalid_field_reference",
                         f"Rule '{rule_id}' references unknown field '{field_name}' in entity '{entity_name}'",
-                        {"intent_name": intent_name, "rule_id": rule_id, "field": field_ref},
+                        {
+                            "intent_name": intent_name,
+                            "rule_id": rule_id,
+                            "field": field_ref,
+                        },
                     )
                 )
         # Field references without dot are slot names - we don't validate those here since slots are intent-specific
 
         return errors
 
-    def write_validation_errors(self, validation_result: ValidationResult, output_path: Path) -> None:
+    def write_validation_errors(
+        self, validation_result: ValidationResult, output_path: Path
+    ) -> None:
         """Write validation errors to a JSON file alongside the main output."""
         if not validation_result.errors:
             return
@@ -225,6 +264,10 @@ class AgentTestValidator:
         tools: EnrichedToolSchemaList,
         entities: EnrichedEntitySchemaList,
         prompt_extraction: StructuredSystemPromptExtraction,
-    ) -> tuple[EnrichedToolSchemaList, EnrichedEntitySchemaList, StructuredSystemPromptExtraction]:
+    ) -> tuple[
+        EnrichedToolSchemaList,
+        EnrichedEntitySchemaList,
+        StructuredSystemPromptExtraction,
+    ]:
         """Attempt to fix common validation errors (currently a placeholder for future enhancement)."""
         return tools, entities, prompt_extraction

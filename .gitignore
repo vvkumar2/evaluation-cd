@@ -1,10 +1,13 @@
-# General
+# Artifacts
 .claude/
+.pytest_cache/
+venv/
+build/
+*__pycache__/
+
+# Project config
 *.env
 pyproject.toml
-venv/
-*__pycache__/
-build/
 
-# Testing
+# Test outputs
 tests/

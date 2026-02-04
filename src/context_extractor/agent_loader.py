@@ -56,7 +56,12 @@ class AgentLoader:
 
     def load_entity_schema(self) -> dict:
         """Load entities from entity_schema.yml file."""
-        for filename in ["entity_schema.yml", "entity_schema.yaml", "entities.yml", "entities.yaml"]:
+        for filename in [
+            "entity_schema.yml",
+            "entity_schema.yaml",
+            "entities.yml",
+            "entities.yaml",
+        ]:
             schema_file = self.agent_dir / filename
             if schema_file.exists():
                 try:
@@ -67,12 +72,16 @@ class AgentLoader:
                         if "entities" in data:
                             return data
                         elif all(isinstance(v, dict) for v in data.values()):
-                            return {"entities": [{"name": k, **v} for k, v in data.items()]}
+                            return {
+                                "entities": [{"name": k, **v} for k, v in data.items()]
+                            }
 
                     return {"entities": data if isinstance(data, list) else [data]}
 
                 except Exception as e:
-                    raise RuntimeError(f"Failed to load entity schema from {schema_file}: {e}")
+                    raise RuntimeError(
+                        f"Failed to load entity schema from {schema_file}: {e}"
+                    )
 
         raise FileNotFoundError(
             f"No entity schema file found in {self.agent_dir} "
@@ -102,7 +111,9 @@ class AgentLoader:
             raise ValueError("SYSTEM_PROMPT constant not found in agent.py")
 
         except Exception as e:
-            raise RuntimeError(f"Failed to extract system prompt from {agent_file}: {e}")
+            raise RuntimeError(
+                f"Failed to extract system prompt from {agent_file}: {e}"
+            )
 
     def load_all(self) -> dict:
         return {

@@ -9,6 +9,7 @@ from enum import Enum
 
 class CustomerTier(Enum):
     """Customer membership tiers."""
+
     STANDARD = "standard"
     GOLD = "gold"
     PLATINUM = "platinum"
@@ -16,6 +17,7 @@ class CustomerTier(Enum):
 
 class RefundStatus(Enum):
     """Refund request status."""
+
     APPROVED = "approved"
     DENIED = "denied"
     PENDING_REVIEW = "pending_review"
@@ -55,7 +57,7 @@ class RefundProcessor:
         order_total: float,
         days_since_delivery: int,
         reason: str,
-        is_damaged: bool = False
+        is_damaged: bool = False,
     ) -> RefundStatus:
         """
         Process a refund request and return the status.
@@ -101,9 +103,7 @@ class RefundProcessor:
             return self._request_executive_approval(order_id, order_total)
 
     def _is_within_refund_window(
-        self,
-        customer_tier: CustomerTier,
-        days_since_delivery: int
+        self, customer_tier: CustomerTier, days_since_delivery: int
     ) -> bool:
         """Check if refund request is within the allowed window."""
         if customer_tier == CustomerTier.PLATINUM:
@@ -113,7 +113,9 @@ class RefundProcessor:
         else:  # STANDARD
             return days_since_delivery <= STANDARD_REFUND_WINDOW_DAYS
 
-    def _approve_refund(self, order_id: str, amount: float, reason: str) -> RefundStatus:
+    def _approve_refund(
+        self, order_id: str, amount: float, reason: str
+    ) -> RefundStatus:
         """Approve a refund immediately."""
         # In production, this would update database and trigger payment processing
         print(f"Refund approved for order {order_id}: ${amount:.2f} ({reason})")
@@ -121,20 +123,16 @@ class RefundProcessor:
 
     def _request_manager_approval(self, order_id: str, amount: float) -> RefundStatus:
         """Request manager approval for mid-tier refunds."""
-        self.pending_approvals.append({
-            'order_id': order_id,
-            'amount': amount,
-            'approval_level': 'manager'
-        })
+        self.pending_approvals.append(
+            {"order_id": order_id, "amount": amount, "approval_level": "manager"}
+        )
         return RefundStatus.PENDING_REVIEW
 
     def _request_executive_approval(self, order_id: str, amount: float) -> RefundStatus:
         """Request executive approval for high-value refunds."""
-        self.pending_approvals.append({
-            'order_id': order_id,
-            'amount': amount,
-            'approval_level': 'executive'
-        })
+        self.pending_approvals.append(
+            {"order_id": order_id, "amount": amount, "approval_level": "executive"}
+        )
         return RefundStatus.PENDING_REVIEW
 
     def get_refund_window_for_tier(self, customer_tier: CustomerTier) -> int:

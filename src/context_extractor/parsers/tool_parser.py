@@ -6,15 +6,16 @@ from ..schemas.tool_schema import (
 
 
 def parse_tools(tools_data: dict) -> ToolSchemaList:
-    return ToolSchemaList(tools=[_parse_single_tool(tool_def) for tool_def in tools_data["tools"]])
+    return ToolSchemaList(
+        tools=[_parse_single_tool(tool_def) for tool_def in tools_data["tools"]]
+    )
 
 
 def _parse_single_tool(tool_def: dict) -> ToolSchema:
     """Parse a single tool definition."""
     name = tool_def.get("name") or tool_def.get("function", {}).get("name", "unknown")
-    description = (
-        tool_def.get("description")
-        or tool_def.get("function", {}).get("description", "")
+    description = tool_def.get("description") or tool_def.get("function", {}).get(
+        "description", ""
     )
 
     if "function" in tool_def and isinstance(tool_def["function"], dict):
@@ -43,7 +44,9 @@ def _parse_parameters(params_schema: dict) -> list[ToolParameter]:
         required_fields = params_schema.get("required", [])
 
         for prop_name, prop_schema in properties.items():
-            param = _parse_parameter(prop_name, prop_schema, prop_name in required_fields)
+            param = _parse_parameter(
+                prop_name, prop_schema, prop_name in required_fields
+            )
             parameters.append(param)
     elif isinstance(params_schema, list):
         for param_def in params_schema:
@@ -57,9 +60,7 @@ def _parse_parameters(params_schema: dict) -> list[ToolParameter]:
     return parameters
 
 
-def _parse_parameter(
-    name: str, schema: dict, required: bool = False
-) -> ToolParameter:
+def _parse_parameter(name: str, schema: dict, required: bool = False) -> ToolParameter:
     param_type = schema.get("type", "string")
     description = schema.get("description", f"Parameter: {name}")
     enum = schema.get("enum")

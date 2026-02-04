@@ -11,7 +11,6 @@ from backend_service import BackendService
 from business_logic.refund_processor import RefundProcessor, CustomerTier, RefundStatus
 from business_logic.order_manager import OrderManager, OrderStatus, ShippingSpeed
 
-
 # Initialize services
 backend_service = BackendService()
 refund_processor = RefundProcessor()
@@ -57,7 +56,11 @@ def get_customer_orders(customer_id: str) -> str:
     Returns:
         List of customer's orders as a formatted string
     """
-    orders = [order for order in backend_service.orders.values() if order["customer_id"] == customer_id]
+    orders = [
+        order
+        for order in backend_service.orders.values()
+        if order["customer_id"] == customer_id
+    ]
 
     if not orders:
         return f"No orders found for customer {customer_id}."

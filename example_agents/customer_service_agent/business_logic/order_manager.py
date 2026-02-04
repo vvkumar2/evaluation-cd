@@ -9,6 +9,7 @@ from enum import Enum
 
 class OrderStatus(Enum):
     """Order status values."""
+
     PENDING = "pending"
     PROCESSING = "processing"
     SHIPPED = "shipped"
@@ -18,6 +19,7 @@ class OrderStatus(Enum):
 
 class ShippingSpeed(Enum):
     """Shipping speed options."""
+
     STANDARD = "standard"  # 5-7 business days
     EXPEDITED = "expedited"  # 2-3 business days
     EXPRESS = "express"  # 1 business day
@@ -51,7 +53,7 @@ class OrderManager:
         self,
         order_total: float,
         shipping_speed: ShippingSpeed,
-        customer_tier: str = "standard"
+        customer_tier: str = "standard",
     ) -> float:
         """
         Calculate shipping cost based on order and customer tier.
@@ -71,14 +73,19 @@ class OrderManager:
             raise ValueError("Order total cannot be negative")
 
         # Free shipping for orders over threshold (standard shipping only)
-        if order_total >= FREE_SHIPPING_THRESHOLD and shipping_speed == ShippingSpeed.STANDARD:
+        if (
+            order_total >= FREE_SHIPPING_THRESHOLD
+            and shipping_speed == ShippingSpeed.STANDARD
+        ):
             return 0.00
 
         # Premium member benefits
         if customer_tier.lower() == "platinum":
             # Platinum gets free express shipping
             return 0.00
-        elif customer_tier.lower() == "gold" and shipping_speed != ShippingSpeed.EXPRESS:
+        elif (
+            customer_tier.lower() == "gold" and shipping_speed != ShippingSpeed.EXPRESS
+        ):
             # Gold gets free standard and expedited shipping
             return 0.00
 

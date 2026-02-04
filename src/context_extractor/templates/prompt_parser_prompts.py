@@ -16,7 +16,7 @@ Each intent must be a single goal or task the agent can help with. For each inte
 - description: What this intent does
 - required_slots: Information the agent needs to fulfill this intent (with their sources)
 - workflow: Step-by-step process the agent will follow to fulfill this intent
-- rules: All rules including precondition checks, business logic, conditional logic, and invalid input tests (e.g., rules for missing required fields, validation checks, business logic)
+- rules: Rules covering business logic from the system prompt and code, precondition checks, invalid input checks, and conditional logic. Ensure at least one rule leads to EACH outcome defined for this intent.
 - requires_confirmation: Whether the agent should ask for confirmation before fulfilling this intent
 - outcomes: Possible outcomes - use the actual return values from the tools used in this intent's workflow
 

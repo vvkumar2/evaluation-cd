@@ -92,7 +92,7 @@ def handle_message(message: str, context: dict = None) -> str:
         # Prepare the messages for the agent
         messages = [
             SystemMessage(content=SYSTEM_PROMPT),
-            HumanMessage(content=enhanced_message)
+            HumanMessage(content=enhanced_message),
         ]
 
         # Agentic loop - keep calling until we get a final response
@@ -108,7 +108,7 @@ def handle_message(message: str, context: dict = None) -> str:
             # If the LLM didn't call any tools, return the response
             if not response.tool_calls:
                 # Extract text content
-                if hasattr(response, 'content'):
+                if hasattr(response, "content"):
                     return response.content
                 else:
                     return str(response)
@@ -117,8 +117,8 @@ def handle_message(message: str, context: dict = None) -> str:
             messages.append(response)
 
             for tool_call in response.tool_calls:
-                tool_name = tool_call['name']
-                tool_args = tool_call['args']
+                tool_name = tool_call["name"]
+                tool_args = tool_call["args"]
 
                 # Get the tool function
                 if tool_name not in tool_map:
@@ -131,10 +131,9 @@ def handle_message(message: str, context: dict = None) -> str:
                         tool_result = f"Error calling tool: {str(e)}"
 
                 # Add tool result to messages
-                messages.append(ToolMessage(
-                    content=tool_result,
-                    tool_call_id=tool_call['id']
-                ))
+                messages.append(
+                    ToolMessage(content=tool_result, tool_call_id=tool_call["id"])
+                )
 
         # If we hit max iterations, return what we have
         return "I apologize, but I took too long to process your request. Please try again."
@@ -162,7 +161,9 @@ def main():
         context = input_data.get("context", {})
 
         if not message:
-            print("I need a message to help you. Could you please provide more details?")
+            print(
+                "I need a message to help you. Could you please provide more details?"
+            )
             return
 
         # Process message with agent
@@ -172,7 +173,9 @@ def main():
         print(response)
 
     except json.JSONDecodeError:
-        print("I apologize, but I couldn't understand the input format. Please provide valid JSON.")
+        print(
+            "I apologize, but I couldn't understand the input format. Please provide valid JSON."
+        )
         sys.exit(1)
     except Exception as e:
         print(f"I apologize, but I'm experiencing technical difficulties: {str(e)}")

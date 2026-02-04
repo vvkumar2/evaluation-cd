@@ -54,17 +54,21 @@ def extract(agent_dir, validate):
             entity_schema = agent_data["entity_schema"]
             system_prompt = agent_data["system_prompt"]
 
-        console.print(f"   [green]✓[/green] Loaded {len(tools_schema['tools'])} tools")
-        console.print(f"   [green]✓[/green] Loaded {len(entity_schema['entities'])} entities")
-        console.print(f"   [green]✓[/green] Loaded system prompt ({len(system_prompt)} chars)")
+        console.print(f"[green]✓[/green] Loaded {len(tools_schema['tools'])} tools")
+        console.print(
+            f"[green]✓[/green] Loaded {len(entity_schema['entities'])} entities"
+        )
+        console.print(
+            f"[green]✓[/green] Loaded system prompt ({len(system_prompt)} chars)"
+        )
 
         # Step 2: Initialize LLM
         console.print(f"\n[cyan]2. Initializing LLM client...")
         try:
             client = OpenAI()
-            console.print(f"   [green]✓[/green] OpenAI client ready")
+            console.print(f"[green]✓[/green] OpenAI client ready")
         except Exception as e:
-            console.print(f"   [red]✗[/red] Failed to initialize OpenAI: {e}")
+            console.print(f"[red]✗[/red] Failed to initialize OpenAI: {e}")
             console.print(
                 "[yellow]Hint:[/yellow] Set OPENAI_API_KEY environment variable"
             )
@@ -74,29 +78,35 @@ def extract(agent_dir, validate):
         console.print(f"\n[cyan]3. Running extraction pipeline...")
         with console.status("[cyan]Extracting tools, entities, intents, rules..."):
             extractor = AgentTestSpaceExtractor(llm_client=client)
-            tools, code_rules, entities, structured_prompt_extraction, validation_result = extractor.extract_all(
+            (
+                tools,
+                code_rules,
+                entities,
+                structured_prompt_extraction,
+                validation_result,
+            ) = extractor.extract_all(
                 tools_schema=tools_schema,
                 entity_schema=entity_schema,
                 system_prompt=system_prompt,
                 agent_dir=agent_path,
             )
 
-        console.print(f"   [green]✓[/green] Step 1: Parsed {len(tools.tools)} tools")
+        console.print(f"[green]✓[/green] Step 1: Parsed {len(tools.tools)} tools")
         console.print(
-            f"   [green]✓[/green] Step 2: Parsed {len(entities.entities)} entities"
+            f"[green]✓[/green] Step 2: Parsed {len(entities.entities)} entities"
         )
-        console.print(f"   [green]✓[/green] Step 3: Extracted intents/rules")
-        console.print(f"   [green]✓[/green] Step 4: Enriched tools and entities")
-        console.print(f"   [green]✓[/green] Step 5: Enriched rules to structured format")
-        console.print(f"   [green]✓[/green] Step 6: Validated extraction")
+        console.print(f"[green]✓[/green] Step 3: Extracted tests")
+        console.print(f"[green]✓[/green] Step 4: Enriched tools and entities")
+        console.print(f"[green]✓[/green] Step 5: Enriched tests to structured format")
+        console.print(f"[green]✓[/green] Step 6: Validated extraction")
 
         if validate:
             console.print(
-                f"      Valid: [{'green' if validation_result.is_valid else 'red'}]{validation_result.is_valid}[/]"
+                f"[green]✓[/green] Valid: [{'green' if validation_result.is_valid else 'red'}]{validation_result.is_valid}[/]"
             )
             if validation_result.errors:
                 console.print(
-                    f"      Errors: [yellow]{len(validation_result.errors)}[/]"
+                    f"[yellow]⚠[/yellow] Errors: [yellow]{len(validation_result.errors)}[/]"
                 )
 
         # Convert to YAML
@@ -107,11 +117,10 @@ def extract(agent_dir, validate):
                 "name": structured_prompt_extraction.agent_name,
                 "role": structured_prompt_extraction.agent_role,
             },
-            "code_rules": [r.model_dump() for r in code_rules.rules],
-            "intents": [i.model_dump() for i in structured_prompt_extraction.intents],
+            "tests": [i.model_dump() for i in structured_prompt_extraction.intents],
         }
 
-        console.print(f"   [green]✓[/green] Converted to YAML format")
+        console.print(f"[green]✓[/green] Converted to YAML format")
 
         console.print(f"\n[cyan]8. Saving results...")
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -119,8 +128,8 @@ def extract(agent_dir, validate):
         with open(output, "w") as f:
             yaml.dump(output_dict, f, default_flow_style=False, sort_keys=False)
 
-        console.print(f"   [green]✓[/green] Results saved to: {output}")
-        console.print(f"   [green]✓[/green] File size: {output.stat().st_size} bytes")
+        console.print(f"[green]✓[/green] Results saved to: {output}")
+        console.print(f"[green]✓[/green] File size: {output.stat().st_size} bytes")
 
         # Write validation errors to file if there are any
         if validate:
@@ -128,7 +137,9 @@ def extract(agent_dir, validate):
                 validator = AgentTestValidator()
                 validator.write_validation_errors(validation_result, output)
                 error_path = output.parent / f"{output.stem}_errors.json"
-                console.print(f"   [yellow]⚠[/yellow] Validation errors written to: {error_path}")
+                console.print(
+                    f"[yellow]⚠[/yellow] Validation errors written to: {error_path}"
+                )
 
         # Summary table
         console.print("\n[bold green]✓ Extraction Complete![/bold green]")

@@ -6,7 +6,10 @@ from .agent_enricher_prompts import (
     ENTITY_THRESHOLDS_EXTRACTION_PROMPT,
 )
 from .rule_enricher_prompts import RULES_STRUCTURING_PROMPT
-from .prompt_parser_prompts import INTENT_EXTRACTION_PROMPT, AGENT_IDENTITY_EXTRACTION_PROMPT
+from .prompt_parser_prompts import (
+    INTENT_EXTRACTION_PROMPT,
+    AGENT_IDENTITY_EXTRACTION_PROMPT,
+)
 
 __all__ = [
     "TOOL_RETURN_SCHEMA_PROMPT",

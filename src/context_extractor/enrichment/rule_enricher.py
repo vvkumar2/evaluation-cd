@@ -1,7 +1,12 @@
 """Enrich intent rules with structured conditions."""
 
 import json
-from ..schemas.prompt_schema import Intent, StructuredIntent, StructuredIntentRule, StructuredCondition
+from ..schemas.prompt_schema import (
+    Intent,
+    StructuredIntent,
+    StructuredIntentRule,
+    StructuredCondition,
+)
 from ..schemas.entity_schema import EntitySchemaList
 from ..schemas.tool_schema import EnrichedToolSchemaList
 from ..templates import RULES_STRUCTURING_PROMPT
@@ -70,7 +75,9 @@ class RuleEnricher:
             if entity.fields:
                 lines.append(f"  Fields:")
                 for field in entity.fields:
-                    lines.append(f"    - {field.name} ({field.type}): {field.description} {f', Enum: {field.enum}' if field.enum else ''}")
+                    lines.append(
+                        f"    - {field.name} ({field.type}): {field.description} {f', Enum: {field.enum}' if field.enum else ''}"
+                    )
             if entity.thresholds:
                 lines.append(f"  Thresholds:")
                 for threshold in entity.thresholds:
@@ -87,7 +94,9 @@ class RuleEnricher:
             if tool.parameters:
                 lines.append(f"  Parameters:")
                 for param in tool.parameters:
-                    lines.append(f"    - {param.name} ({param.type}): {param.description}")
+                    lines.append(
+                        f"    - {param.name} ({param.type}): {param.description}"
+                    )
         return "\n".join(lines)
 
     def _format_rules(self, intent: Intent) -> str:
@@ -114,7 +123,6 @@ class RuleEnricher:
         for slot in intent.required_slots:
             lines.append(f"- {slot.slot_name} (source: {slot.source})")
         return "\n".join(lines) if lines else "None"
-
 
     def _call_llm(self, prompt: str) -> str:
         """Call LLM and extract JSON."""

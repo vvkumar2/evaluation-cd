@@ -32,9 +32,11 @@ class IntentRule(BaseModel):
     conditions: list[str] = Field(default_factory=list)
     actions: list[str]
 
+
 class IntentOutcome(BaseModel):
     outcome_name: str
     description: str
+
 
 class Intent(BaseModel):
     name: str
@@ -45,6 +47,7 @@ class Intent(BaseModel):
     requires_confirmation: bool = False
     outcomes: list[IntentOutcome] = Field(default_factory=list)
 
+
 class StructuredIntent(BaseModel):
     name: str
     description: str
@@ -54,10 +57,12 @@ class StructuredIntent(BaseModel):
     requires_confirmation: bool = False
     outcomes: list[IntentOutcome] = Field(default_factory=list)
 
+
 class SystemPromptExtraction(BaseModel):
     agent_name: str
     agent_role: str
     intents: list[Intent]
+
 
 class StructuredSystemPromptExtraction(BaseModel):
     agent_name: str
