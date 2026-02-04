@@ -36,11 +36,11 @@ def lookup_order(order_id: str) -> str:
 
     return (
         f"Order Details:\n"
-        f"  ID: {order['id']}\n"
-        f"  Customer: {customer_name} ({order['customer_id']})\n"
-        f"  Amount: ${order['price']:.2f}\n"
-        f"  Status: {order['status']}\n"
-        f"  Days since delivery: {order['delivered_date_days_ago']}"
+        f"ID: {order['id']}\n"
+        f"Customer: {customer_name} ({order['customer_id']})\n"
+        f"Amount: ${order['price']:.2f}\n"
+        f"Status: {order['status']}\n"
+        f"Days since delivery: {order['delivered_date_days_ago']}"
     )
 
 
@@ -67,7 +67,7 @@ def get_customer_orders(customer_id: str) -> str:
     orders_text = f"Orders for customer {customer_id}:\n"
     for order in orders:
         orders_text += (
-            f"  - {order['id']}: ${order['price']:.2f}, Status: {order['status']}, "
+            f"- {order['id']}: ${order['price']:.2f}, Status: {order['status']}, "
             f"Delivered {order['delivered_date_days_ago']} days ago\n"
         )
 
@@ -91,10 +91,10 @@ def lookup_customer(customer_id: str) -> str:
 
     return (
         f"Customer Details:\n"
-        f"  ID: {customer['id']}\n"
-        f"  Name: {customer['name']}\n"
-        f"  Tier: {customer['tier'].upper()}\n"
-        f"  Email: {customer['email']}"
+        f"ID: {customer['id']}\n"
+        f"Name: {customer['name']}\n"
+        f"Tier: {customer['tier'].upper()}\n"
+        f"Email: {customer['email']}"
     )
 
 

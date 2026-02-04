@@ -162,7 +162,7 @@ class SystemPromptParser:
     def _format_tools_context(self, tools: EnrichedToolSchemaList) -> str:
         return "\n".join(
             (
-                f"- {tool.name}: {tool.description}" + f" -> {tool.returns.type}"
+                f"- {tool.name}: {tool.description}" + f"-> {tool.returns.type}"
                 if tool.returns
                 else ""
             )
@@ -172,9 +172,9 @@ class SystemPromptParser:
         # lines = []
         # for tool in tools.tools:
         #     if tool.returns:
-        #         returns = f" -> {tool.returns.type}"
+        #         returns = f"-> {tool.returns.type}"
         #         if tool.returns.entity_name:
-        #             returns += f" -> {tool.returns.entity_name}"
+        #             returns += f"-> {tool.returns.entity_name}"
         #     else:
         #         returns = ""
         #     lines.append(f"- {tool.name}: {tool.description}{returns}")
@@ -187,13 +187,13 @@ class SystemPromptParser:
             line = f"- {entity.name}: {entity.description}"
             if entity.fields:
                 for field in entity.fields:
-                    line += f" {field.name}: {field.type}"
+                    line += f"{field.name}: {field.type}"
                     if field.enum:
-                        line += f" (enum: {field.enum})"
+                        line += f"(enum: {field.enum})"
             if entity.thresholds:
                 for threshold in entity.thresholds:
                     line += (
-                        f" {threshold.name}: {threshold.value} {threshold.unit or ''}"
+                        f"{threshold.name}: {threshold.value} {threshold.unit or ''}"
                     )
             lines.append(line)
         return "\n".join(lines)

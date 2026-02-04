@@ -71,18 +71,18 @@ class RuleEnricher:
         lines = []
         for entity in entities.entities:
             lines.append(f"\n{entity.name}:")
-            lines.append(f"  Description: {entity.description}")
+            lines.append(f"Description: {entity.description}")
             if entity.fields:
                 lines.append("  Fields:")
                 for field in entity.fields:
                     lines.append(
-                        f"    - {field.name} ({field.type}): {field.description} {f', Enum: {field.enum}' if field.enum else ''}"
+                        f"- {field.name} ({field.type}): {field.description} {f', Enum: {field.enum}' if field.enum else ''}"
                     )
             if entity.thresholds:
                 lines.append("  Thresholds:")
                 for threshold in entity.thresholds:
-                    unit_str = f" {threshold.unit}" if threshold.unit else ""
-                    lines.append(f"    - {threshold.name}: {threshold.value}{unit_str}")
+                    unit_str = f"{threshold.unit}" if threshold.unit else ""
+                    lines.append(f"- {threshold.name}: {threshold.value}{unit_str}")
         return "\n".join(lines)
 
     def _format_tools(self, tools: EnrichedToolSchemaList) -> str:
@@ -90,13 +90,11 @@ class RuleEnricher:
         lines = []
         for tool in tools.tools:
             lines.append(f"\n{tool.name}:")
-            lines.append(f"  Description: {tool.description}")
+            lines.append(f"Description: {tool.description}")
             if tool.parameters:
-                lines.append("  Parameters:")
+                lines.append(f"Parameters:")
                 for param in tool.parameters:
-                    lines.append(
-                        f"    - {param.name} ({param.type}): {param.description}"
-                    )
+                    lines.append(f"- {param.name} ({param.type}): {param.description}")
         return "\n".join(lines)
 
     def _format_rules(self, intent: Intent) -> str:
@@ -105,9 +103,9 @@ class RuleEnricher:
         for rule in intent.rules:
             lines.append(f"\n- Description: {rule.description}")
             if rule.conditions:
-                lines.append(f"  Conditions: {', '.join(rule.conditions)}")
+                lines.append(f"Conditions: {', '.join(rule.conditions)}")
             if rule.actions:
-                lines.append(f"  Actions: {', '.join(rule.actions)}")
+                lines.append(f"Actions: {', '.join(rule.actions)}")
         return "\n".join(lines)
 
     def _format_outcomes(self, intent: Intent) -> str:

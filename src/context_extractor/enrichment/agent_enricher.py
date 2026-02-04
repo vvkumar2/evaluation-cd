@@ -373,7 +373,7 @@ class AgentEnricher:
         tool_text = f"- {tool.name}: {tool.description}"
         if tool.parameters:
             params_text = "\n".join(
-                f"  - {p.name} ({p.type}): {p.description}" for p in tool.parameters
+                f"- {p.name} ({p.type}): {p.description}" for p in tool.parameters
             )
             tool_text += f"\n  Parameters:\n{params_text}"
         return tool_text
