@@ -22,11 +22,10 @@ class SystemPromptParser:
         self,
         tools: EnrichedToolSchemaList,
         code_rules: ToolCodeRuleList,
-        entities: EnrichedEntitySchemaList,
         system_prompt: str,
     ) -> SystemPromptExtraction:
         """Extract intents and agent identity from system prompt."""
-        intents = self.extract_intents(tools, code_rules, entities, system_prompt)
+        intents = self.extract_intents(tools, code_rules, system_prompt)
         agent_name, agent_role = self._extract_agent_identity(system_prompt)
 
         return SystemPromptExtraction(
@@ -39,13 +38,10 @@ class SystemPromptParser:
         self,
         tools: EnrichedToolSchemaList,
         code_rules: ToolCodeRuleList,
-        entities: EnrichedEntitySchemaList,
         system_prompt: str,
     ) -> list[Intent]:
         """Use LLM to identify goals and tasks the agent can help with."""
-        prompt = self._build_intent_extraction_prompt(
-            tools, code_rules, entities, system_prompt
-        )
+        prompt = self._build_intent_extraction_prompt(tools, code_rules, system_prompt)
         response = self._call_llm(prompt)
         intents = self._parse_intent_response(response)
         return intents
@@ -54,7 +50,6 @@ class SystemPromptParser:
         self,
         tools: EnrichedToolSchemaList,
         code_rules: ToolCodeRuleList,
-        entities: EnrichedEntitySchemaList,
         system_prompt: str,
     ) -> str:
         """Build LLM prompt for intent extraction."""

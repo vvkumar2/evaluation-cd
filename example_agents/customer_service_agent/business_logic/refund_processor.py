@@ -56,7 +56,6 @@ class RefundProcessor:
         customer_tier: CustomerTier,
         order_total: float,
         days_since_delivery: int,
-        reason: str,
         is_damaged: bool = False,
     ) -> RefundStatus:
         """
@@ -67,7 +66,6 @@ class RefundProcessor:
             customer_tier: Customer's membership tier
             order_total: Total order amount
             days_since_delivery: Number of days since order was delivered
-            reason: Customer's reason for refund
             is_damaged: Whether the item arrived damaged
 
         Returns:

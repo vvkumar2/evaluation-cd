@@ -73,13 +73,13 @@ class RuleEnricher:
             lines.append(f"\n{entity.name}:")
             lines.append(f"  Description: {entity.description}")
             if entity.fields:
-                lines.append(f"  Fields:")
+                lines.append("  Fields:")
                 for field in entity.fields:
                     lines.append(
                         f"    - {field.name} ({field.type}): {field.description} {f', Enum: {field.enum}' if field.enum else ''}"
                     )
             if entity.thresholds:
-                lines.append(f"  Thresholds:")
+                lines.append("  Thresholds:")
                 for threshold in entity.thresholds:
                     unit_str = f" {threshold.unit}" if threshold.unit else ""
                     lines.append(f"    - {threshold.name}: {threshold.value}{unit_str}")
@@ -92,7 +92,7 @@ class RuleEnricher:
             lines.append(f"\n{tool.name}:")
             lines.append(f"  Description: {tool.description}")
             if tool.parameters:
-                lines.append(f"  Parameters:")
+                lines.append("  Parameters:")
                 for param in tool.parameters:
                     lines.append(
                         f"    - {param.name} ({param.type}): {param.description}"

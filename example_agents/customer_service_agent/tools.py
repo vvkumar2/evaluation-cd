@@ -4,7 +4,6 @@ LangChain tools for the customer service agent.
 Exposes business logic and backend service as callable tools for the LLM.
 """
 
-from typing import Optional
 from langchain.tools import tool
 
 from backend_service import BackendService
@@ -105,7 +104,6 @@ def process_refund_request(
     customer_tier: str,
     order_total: float,
     days_since_delivery: int,
-    reason: str,
     is_damaged: bool = False,
 ) -> str:
     """
@@ -116,7 +114,6 @@ def process_refund_request(
         customer_tier: Customer tier (standard, gold, or platinum)
         order_total: Total order amount in dollars
         days_since_delivery: Days since the order was delivered
-        reason: Reason for the refund (e.g., "damaged", "changed_mind", etc.)
         is_damaged: Whether the item arrived damaged
 
     Returns:
@@ -136,7 +133,6 @@ def process_refund_request(
             customer_tier=tier_enum,
             order_total=order_total,
             days_since_delivery=days_since_delivery,
-            reason=reason,
             is_damaged=is_damaged,
         )
 

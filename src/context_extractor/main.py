@@ -40,7 +40,7 @@ class AgentTestSpaceExtractor:
             tools, entities, system_prompt, Path(agent_dir) / "tools.py"
         )
         prompt_extraction = self.step4_parse_system_prompt(
-            tools, code_rules, entities, system_prompt
+            tools, code_rules, system_prompt
         )
         structured_prompt_extraction = self.step5_structure_rules(
             tools, entities, prompt_extraction
@@ -76,12 +76,9 @@ class AgentTestSpaceExtractor:
         self,
         tools: EnrichedToolSchemaList,
         code_rules: ToolCodeRuleList,
-        entities: EnrichedEntitySchemaList,
         system_prompt: str,
     ) -> SystemPromptExtraction:
-        return self.prompt_parser.parse_system_prompt(
-            tools, code_rules, entities, system_prompt
-        )
+        return self.prompt_parser.parse_system_prompt(tools, code_rules, system_prompt)
 
     def step5_structure_rules(
         self,

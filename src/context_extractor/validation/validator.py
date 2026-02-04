@@ -160,7 +160,7 @@ class AgentTestValidator:
             )
 
         # Validate each condition
-        for cond_idx, condition in enumerate(rule.conditions):
+        for condition in rule.conditions:
             cond_errors = self._validate_condition(
                 condition, rule.id, intent_name, entity_fields
             )

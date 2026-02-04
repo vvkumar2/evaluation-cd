@@ -5,9 +5,6 @@ venv/
 build/
 *__pycache__/
 
-# Project config
+# Project files
 *.env
-pyproject.toml
-
-# Test outputs
 tests/

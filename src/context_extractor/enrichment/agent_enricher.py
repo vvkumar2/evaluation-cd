@@ -119,6 +119,33 @@ class AgentEnricher:
         response = self._call_llm(llm_code_rules_prompt)
         return self._parse_code_rules_response(response)
 
+    def _find_business_logic_info(self, tools_tree) -> dict:
+        """Find business logic module imports and their instance names."""
+        business_logic_info = {}
+        for node in ast.walk(tools_tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                module_name = node.module
+                module_class = next((alias.name for alias in node.names), None)
+
+                if module_class:
+                    for assign_node in ast.walk(tools_tree):
+                        if self._is_matching_instantiation(assign_node, module_class):
+                            instance_name = assign_node.targets[0].id
+                            business_logic_info[module_name] = instance_name
+                            break
+        return business_logic_info
+
+    def _is_matching_instantiation(self, node, class_name: str) -> bool:
+        """Check if assignment node is an instantiation of the given class."""
+        return (
+            isinstance(node, ast.Assign)
+            and len(node.targets) > 0
+            and isinstance(node.targets[0], ast.Name)
+            and isinstance(node.value, ast.Call)
+            and isinstance(node.value.func, ast.Name)
+            and node.value.func.id == class_name
+        )
+
     def _extract_business_logic_code(
         self,
         tool_code: str,
@@ -129,91 +156,33 @@ class AgentEnricher:
         agent_dir = tools_py_path.parent
 
         try:
-            # Read the full tools.py file to find imports
             full_tools_code = tools_py_path.read_text()
             tools_tree = ast.parse(full_tools_code)
 
-            # Find business logic module imports and their instance names
-            business_logic_info = {}  # {module_name: instance_name}
-            for node in ast.walk(tools_tree):
-                if isinstance(node, ast.ImportFrom):
-                    if node.module:
-                        module_name = node.module
-                        # Find the instance assignment (e.g., order_manager = OrderManager())
-                        module_class = None
-                        for alias in node.names:
-                            module_class = alias.name
-                            break
-
-                        if module_class:
-                            # Find where this class is instantiated
-                            for assign_node in ast.walk(tools_tree):
-                                if isinstance(assign_node, ast.Assign):
-                                    for target in assign_node.targets:
-                                        if isinstance(target, ast.Name):
-                                            if isinstance(assign_node.value, ast.Call):
-                                                if isinstance(
-                                                    assign_node.value.func, ast.Name
-                                                ):
-                                                    if (
-                                                        assign_node.value.func.id
-                                                        == module_class
-                                                    ):
-                                                        instance_name = target.id
-                                                        business_logic_info[
-                                                            module_name
-                                                        ] = instance_name
-                                                        break
+            business_logic_info = self._find_business_logic_info(tools_tree)
 
             # Parse tool code to find called methods
             tool_tree = ast.parse(tool_code)
-            called_methods_by_module = {}  # {instance_name: [method_names]}
+            called_methods_by_module = {}
 
             for node in ast.walk(tool_tree):
                 if isinstance(node, ast.Call):
                     if isinstance(node.func, ast.Attribute):
                         if isinstance(node.func.value, ast.Name):
                             instance_name = node.func.value.id
-                            method_name = node.func.attr
                             if instance_name in business_logic_info.values():
                                 if instance_name not in called_methods_by_module:
                                     called_methods_by_module[instance_name] = []
                                 called_methods_by_module[instance_name].append(
-                                    method_name
+                                    node.func.attr
                                 )
 
             if not called_methods_by_module:
                 return None
 
-            # Extract code from business logic files
-            business_logic_code_parts = []
-            for module_name, instance_name in business_logic_info.items():
-                if instance_name in called_methods_by_module:
-                    # Convert module path to file path
-                    module_path = module_name.replace(".", "/") + ".py"
-                    business_logic_file = agent_dir / module_path
-
-                    if business_logic_file.exists():
-                        called_methods = called_methods_by_module[instance_name]
-                        # Extract constants and methods
-                        constants_code = self._extract_constants_from_file(
-                            business_logic_file
-                        )
-                        methods_code = self._extract_methods_from_file(
-                            business_logic_file, called_methods
-                        )
-                        # Combine constants and methods
-                        module_code_parts = []
-                        if constants_code:
-                            module_code_parts.append(f"# Constants:\n{constants_code}")
-                        if methods_code:
-                            module_code_parts.append(f"# Methods:\n{methods_code}")
-                        if module_code_parts:
-                            business_logic_code_parts.append(
-                                f"# From {module_name}:\n\n"
-                                + "\n\n".join(module_code_parts)
-                            )
-
+            business_logic_code_parts = self._extract_business_logic_files(
+                agent_dir, business_logic_info, called_methods_by_module
+            )
             return (
                 "\n\n".join(business_logic_code_parts)
                 if business_logic_code_parts
@@ -222,6 +191,38 @@ class AgentEnricher:
 
         except Exception:
             return None
+
+    def _extract_business_logic_files(
+        self, agent_dir: Path, business_logic_info: dict, called_methods_by_module: dict
+    ) -> list[str]:
+        """Extract code from business logic files."""
+        business_logic_code_parts = []
+        for module_name, instance_name in business_logic_info.items():
+            if instance_name not in called_methods_by_module:
+                continue
+
+            module_path = module_name.replace(".", "/") + ".py"
+            business_logic_file = agent_dir / module_path
+
+            if not business_logic_file.exists():
+                continue
+
+            called_methods = called_methods_by_module[instance_name]
+            constants_code = self._extract_constants_from_file(business_logic_file)
+            methods_code = self._extract_methods_from_file(
+                business_logic_file, called_methods
+            )
+
+            module_code_parts = []
+            if constants_code:
+                module_code_parts.append(f"# Constants:\n{constants_code}")
+            if methods_code:
+                module_code_parts.append(f"# Methods:\n{methods_code}")
+            if module_code_parts:
+                business_logic_code_parts.append(
+                    f"# From {module_name}:\n\n" + "\n\n".join(module_code_parts)
+                )
+        return business_logic_code_parts
 
     def _extract_constants_from_file(self, file_path: Path) -> Optional[str]:
         """Extract module-level constants (uppercase variable assignments) from a Python file."""

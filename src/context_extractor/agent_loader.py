@@ -1,8 +1,8 @@
-import yaml
-import sys
 import re
-from pathlib import Path
+import sys
 from importlib import import_module
+from pathlib import Path
+import yaml
 
 
 class AgentLoader:
@@ -47,7 +47,7 @@ class AgentLoader:
             return tools_schema
 
         except Exception as e:
-            raise RuntimeError(f"Failed to load tools from {tools_file}: {e}")
+            raise RuntimeError(f"Failed to load tools from {tools_file}: {e}") from e
         finally:
             if str(self.agent_dir) in sys.path:
                 sys.path.remove(str(self.agent_dir))
@@ -81,7 +81,7 @@ class AgentLoader:
                 except Exception as e:
                     raise RuntimeError(
                         f"Failed to load entity schema from {schema_file}: {e}"
-                    )
+                    ) from e
 
         raise FileNotFoundError(
             f"No entity schema file found in {self.agent_dir} "
@@ -113,7 +113,7 @@ class AgentLoader:
         except Exception as e:
             raise RuntimeError(
                 f"Failed to extract system prompt from {agent_file}: {e}"
-            )
+            ) from e
 
     def load_all(self) -> dict:
         return {
