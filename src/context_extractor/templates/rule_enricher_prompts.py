@@ -35,10 +35,10 @@ Output:
 ```json
 {{
   "rules": [
-    {{"id": "damaged_approved", "conditions": [{{"field": "is_damaged", "operator": "eq", "value": true}}], "outcome": "APPROVED", "expected_behavior": "Agent apologizes for the damaged item. Agent confirms the refund is approved. Agent states the refund amount. Agent provides timeline (3-5 business days). Agent does NOT mention refund window since damaged items are always eligible."}},
-    {{"id": "standard_outside_window", "conditions": [{{"field": "customer.tier", "operator": "eq", "value": "standard"}}, {{"field": "order.delivered_date_days_ago", "operator": "gt", "value": 30}}, {{"field": "is_damaged", "operator": "eq", "value": false}}], "outcome": "DENIED", "expected_behavior": "Agent expresses empathy. Agent explains refund cannot be processed. Agent cites the 30-day refund window for Standard tier customers. Agent mentions how many days it has been since delivery. Agent offers alternatives if applicable (e.g., store credit, exchange). Agent maintains professional tone."}},
-    {{"id": "auto_approve_under_200", "conditions": [{{"field": "is_damaged", "operator": "eq", "value": false}}, {{"field": "order.price", "operator": "lt", "value": 200}}], "outcome": "APPROVED", "expected_behavior": "Agent confirms the refund is approved. Agent states the exact refund amount. Agent provides timeline for processing (3-5 business days). Agent thanks customer. Agent does NOT mention needing approval since amount is under $200."}},
-    {{"id": "pending_200_to_1000", "conditions": [{{"field": "is_damaged", "operator": "eq", "value": false}}, {{"field": "order.price", "operator": "gte", "value": 200}}, {{"field": "order.price", "operator": "lte", "value": 1000}}], "outcome": "PENDING_REVIEW", "expected_behavior": "Agent explains the refund request has been submitted. Agent states it requires manager approval due to the amount. Agent provides expected timeline for review (1-2 business days). Agent assures customer they will be notified of the decision. Agent does NOT promise approval."}}
+    {{"id": "damaged_approved", "conditions": [{{"field": "is_damaged", "operator": "eq", "value": true}}], "outcome": "APPROVED", "expected_behavior": "Refund approved for damaged item."}},
+    {{"id": "standard_outside_window", "conditions": [{{"field": "customer.tier", "operator": "eq", "value": "standard"}}, {{"field": "order.delivered_date_days_ago", "operator": "gt", "value": 30}}, {{"field": "is_damaged", "operator": "eq", "value": false}}], "outcome": "DENIED", "expected_behavior": "Refund denied: outside 30-day window for Standard tier."}},
+    {{"id": "auto_approve_under_200", "conditions": [{{"field": "is_damaged", "operator": "eq", "value": false}}, {{"field": "order.price", "operator": "lt", "value": 200}}], "outcome": "APPROVED", "expected_behavior": "Refund approved."}},
+    {{"id": "pending_200_to_1000", "conditions": [{{"field": "is_damaged", "operator": "eq", "value": false}}, {{"field": "order.price", "operator": "gte", "value": 200}}, {{"field": "order.price", "operator": "lte", "value": 1000}}], "outcome": "PENDING_REVIEW", "expected_behavior": "Refund requires manager approval."}}
   ]
 }}
 ```
@@ -76,7 +76,7 @@ Convert ONLY these rules into structured format. For each rule, include:
 - **description**: When this rule applies
 - **conditions**: List of conditions that must be true
 - **outcome**: The outcome this rule leads to
-- **expected_behavior**: What the agent should do/say when this rule matches (this is used to evaluate if the agent behaves correctly). Include quantitative details when possible.
+- **expected_behavior**: Core facts/outcome agent must communicate (concise, objective)
 
 Output valid JSON:
 {{

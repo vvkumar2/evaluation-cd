@@ -7,17 +7,15 @@ from ..schemas.entity_schema import (
 
 def parse_entity_schema(entity_data: dict) -> EntitySchemaList:
     return EntitySchemaList(
-        entities=[
-            _parse_single_entity(entity_def) for entity_def in entity_data["entities"]
-        ]
+        entities=[_parse_single_entity(entity) for entity in entity_data["entities"]]
     )
 
 
-def _parse_single_entity(entity_def: dict) -> EntitySchema:
+def _parse_single_entity(entity: dict) -> EntitySchema:
     """Parse single entity with fields."""
-    name = entity_def.get("name", "unknown")
-    description = entity_def.get("description", "")
-    fields = _parse_fields(entity_def.get("fields", []))
+    name = entity.get("name", "unknown")
+    description = entity.get("description", "")
+    fields = _parse_fields(entity.get("fields", []))
 
     return EntitySchema(
         name=name,

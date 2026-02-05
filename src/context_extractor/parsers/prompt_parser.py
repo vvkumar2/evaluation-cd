@@ -168,17 +168,6 @@ class SystemPromptParser:
             )
             for tool in tools.tools
         )
-        # """Brief tool summary - name, description, returns."""
-        # lines = []
-        # for tool in tools.tools:
-        #     if tool.returns:
-        #         returns = f"-> {tool.returns.type}"
-        #         if tool.returns.entity_name:
-        #             returns += f"-> {tool.returns.entity_name}"
-        #     else:
-        #         returns = ""
-        #     lines.append(f"- {tool.name}: {tool.description}{returns}")
-        # return "\n".join(lines)
 
     def _format_entities_context(self, entities: EnrichedEntitySchemaList) -> str:
         """Format entities with fields, enums, and thresholds."""

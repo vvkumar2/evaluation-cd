@@ -84,7 +84,7 @@ class RefundProcessor:
 
         # Special case: Damaged items always get refunded
         if is_damaged:
-            return self._approve_refund(order_id, order_total, "damaged_item")
+            return RefundStatus.APPROVED
 
         # Check if within refund window
         if not self._is_within_refund_window(customer_tier, days_since_delivery):
@@ -92,7 +92,7 @@ class RefundProcessor:
 
         # Check refund amount and approval authority
         if order_total <= MAX_REFUND_WITHOUT_APPROVAL:
-            return self._approve_refund(order_id, order_total, "auto_approved")
+            return RefundStatus.APPROVED
 
         elif order_total <= MAX_REFUND_WITH_MANAGER_APPROVAL:
             return self._request_manager_approval(order_id, order_total)
@@ -110,14 +110,6 @@ class RefundProcessor:
             return days_since_delivery <= GOLD_REFUND_WINDOW_DAYS
         else:  # STANDARD
             return days_since_delivery <= STANDARD_REFUND_WINDOW_DAYS
-
-    def _approve_refund(
-        self, order_id: str, amount: float, reason: str
-    ) -> RefundStatus:
-        """Approve a refund immediately."""
-        # In production, this would update database and trigger payment processing
-        print(f"Refund approved for order {order_id}: ${amount:.2f} ({reason})")
-        return RefundStatus.APPROVED
 
     def _request_manager_approval(self, order_id: str, amount: float) -> RefundStatus:
         """Request manager approval for mid-tier refunds."""
