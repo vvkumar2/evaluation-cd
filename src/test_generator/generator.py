@@ -32,12 +32,11 @@ class TestCaseGenerator:
         test_cases = []
 
         for intent in extraction.intents:
-            for rule_idx, rule in enumerate(intent.rules):
+            for rule in intent.rules:
                 test_case = self._generate_test_case_with_llm(
                     intent_name=intent.name,
                     intent_description=intent.description,
                     rule=rule,
-                    rule_idx=rule_idx,
                     entities=entities,
                 )
                 if test_case:
@@ -50,7 +49,6 @@ class TestCaseGenerator:
         intent_name: str,
         intent_description: str,
         rule,
-        rule_idx: int,
         entities: EntitySchemaList,
     ) -> GeneratedTestCase:
         """Generate a single test case using LLM."""
@@ -145,7 +143,9 @@ class TestCaseGenerator:
             data = json.loads(response)
             return data
         except json.JSONDecodeError as e:
-            raise ValueError(f"Failed to parse test case response: {e}\n{response}") from e
+            raise ValueError(
+                f"Failed to parse test case response: {e}\n{response}"
+            ) from e
 
     def _fill_missing_fields(
         self, backend_state: dict[str, list[dict]], entities: EntitySchemaList
@@ -162,7 +162,11 @@ class TestCaseGenerator:
                 # Fill in missing fields using defaults from schema
                 if entity.fields:
                     for field in entity.fields:
-                        if field.name not in instance and hasattr(field, "default") and field.default is not None:
+                        if (
+                            field.name not in instance
+                            and hasattr(field, "default")
+                            and field.default is not None
+                        ):
                             instance[field.name] = field.default
 
         return backend_state

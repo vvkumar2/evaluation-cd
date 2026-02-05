@@ -7,9 +7,7 @@ from ..schemas.entity_schema import (
 
 def parse_entity_schema(entity_data: dict) -> EntitySchemaList:
     return EntitySchemaList(
-        entities=[
-            _parse_single_entity(entity) for entity in entity_data["entities"]
-        ]
+        entities=[_parse_single_entity(entity) for entity in entity_data["entities"]]
     )
 
 

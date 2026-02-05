@@ -1,15 +1,15 @@
 """Schemas for generated test cases."""
 
-from pydantic import BaseModel, Field
 from typing import Optional
+from pydantic import BaseModel, Field
 
 
 class TestInput(BaseModel):
     """Input to provide to agent."""
+
     message: str = Field(description="Message to send to agent")
     context: Optional[dict] = Field(
-        default=None,
-        description="Context dict (e.g., customer_id)"
+        default=None, description="Context dict (e.g., customer_id)"
     )
 
 
@@ -49,6 +49,7 @@ class GeneratedTestCase(BaseModel):
 
 class GeneratedTestSuite(BaseModel):
     """Complete test suite for an agent."""
+
     agent_name: str
     test_cases: list[GeneratedTestCase]
 
