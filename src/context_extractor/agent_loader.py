@@ -66,17 +66,7 @@ class AgentLoader:
             if schema_file.exists():
                 try:
                     with open(schema_file) as f:
-                        data = yaml.safe_load(f)
-
-                    if isinstance(data, dict):
-                        if "entities" in data:
-                            return data
-                        elif all(isinstance(v, dict) for v in data.values()):
-                            return {
-                                "entities": [{"name": k, **v} for k, v in data.items()]
-                            }
-
-                    return {"entities": data if isinstance(data, list) else [data]}
+                        return yaml.safe_load(f)
 
                 except Exception as e:
                     raise RuntimeError(
@@ -115,14 +105,14 @@ class AgentLoader:
                 f"Failed to extract system prompt from {agent_file}: {e}"
             ) from e
 
-    def load_all(self) -> dict:
-        return {
-            "tools_schema": self.load_tools_schema(),
-            "entity_schema": self.load_entity_schema(),
-            "system_prompt": self.load_system_prompt(),
-        }
+    def load_all(self) -> tuple[dict, dict, str]:
+        return (
+            self.load_tools_schema(),
+            self.load_entity_schema(),
+            self.load_system_prompt(),
+        )
 
 
-def load_agent(agent_dir: Path | str) -> dict:
+def load_agent(agent_dir: Path | str) -> tuple[dict, dict, str]:
     loader = AgentLoader(agent_dir)
     return loader.load_all()

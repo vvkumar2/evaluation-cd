@@ -99,19 +99,16 @@ def extract(agent_dir, validate):
         sys.exit(1)
 
 
-def _load_agent_data(agent_path):
+def _load_agent_data(agent_path: Path) -> tuple[dict, dict, str]:
     """Load agent tools, entities, and system prompt."""
     console.print(f"\n[cyan]1. Loading agent from:[/cyan] {agent_path}")
     with console.status("[cyan]Loading tools, entities, system prompt..."):
-        agent_data = load_agent(agent_path)
-        tools_schema = agent_data["tools_schema"]
-        entity_schema = agent_data["entity_schema"]
-        system_prompt = agent_data["system_prompt"]
+        tools_schema, entity_schema, system_prompt = load_agent(agent_path)
 
     console.print(f"[green]✓[/green] Loaded {len(tools_schema['tools'])} tools")
     console.print(f"[green]✓[/green] Loaded {len(entity_schema['entities'])} entities")
     console.print(f"[green]✓[/green] Loaded system prompt ({len(system_prompt)} chars)")
-    return tools_schema, entity_schema, system_prompt
+    return (tools_schema, entity_schema, system_prompt)
 
 
 def _init_llm_client():
