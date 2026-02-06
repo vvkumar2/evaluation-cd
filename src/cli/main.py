@@ -13,6 +13,7 @@ from ..context_extractor.schemas.prompt_schema import StructuredSystemPromptExtr
 from ..context_extractor.parsers.entity_parser import parse_entity_schema
 from ..test_generator.generator import TestCaseGenerator
 from ..test_runner.runner import TestRunner
+from ..test_runner.html_reporter import generate_html_report
 
 console = Console()
 
@@ -262,6 +263,11 @@ def _run_execution_stage(
     with open(report_file, "w") as f:
         yaml.dump(report.model_dump(), f, default_flow_style=False, sort_keys=False)
     console.print(f"[green]✓[/green] Report saved to: {report_file}")
+
+    # Generate HTML report
+    html_file = report_file.with_suffix(".html")
+    generate_html_report(report, html_file)
+    console.print(f"[green]✓[/green] HTML report saved to: {html_file}")
 
     _print_execution_summary(report)
 
