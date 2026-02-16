@@ -1,17 +1,29 @@
 """
 LangChain tools for the customer service agent.
 
-Exposes business logic and backend service as callable tools for the LLM.
+Exposes business logic and SQLite database as callable tools for the LLM.
+Database URL is determined at import time from environment variables:
+- Normal mode: sqlite:///techgear.db
+- Test mode (AGENT_TEST_MODE=true): uses TEST_DB_URL env var
 """
 
+import os
 from langchain.tools import tool
+from sqlalchemy import create_engine, text
 
-from backend_service import BackendService
+from backend_service import get_db_url, create_schema, seed_sample_data
 from business_logic.refund_processor import RefundProcessor, CustomerTier, RefundStatus
 from business_logic.order_manager import OrderManager, OrderStatus, ShippingSpeed
 
-# Initialize services
-backend_service = BackendService()
+# Initialize SQLite database connection
+_db_url = get_db_url()
+db_engine = create_engine(_db_url, connect_args={"check_same_thread": False})
+create_schema(db_engine)
+
+# Only seed sample data in non-test mode
+if os.getenv("AGENT_TEST_MODE") != "true":
+    seed_sample_data(db_engine)
+
 refund_processor = RefundProcessor()
 order_manager = OrderManager()
 
@@ -27,20 +39,27 @@ def lookup_order(order_id: str) -> str:
     Returns:
         Order details as a formatted string, or error message if not found
     """
-    order = backend_service.get_order(order_id)
-    if not order:
-        return f"Order {order_id} not found in system."
+    with db_engine.connect() as conn:
+        row = conn.execute(
+            text(
+                "SELECT o.id, o.customer_id, c.name, o.price, o.status, "
+                "o.delivered_date_days_ago "
+                "FROM orders o JOIN customers c ON o.customer_id = c.id "
+                "WHERE o.id = :order_id"
+            ),
+            {"order_id": order_id},
+        ).fetchone()
 
-    customer = backend_service.get_customer(order["customer_id"])
-    customer_name = customer["name"] if customer else "Unknown"
+    if not row:
+        return f"Order {order_id} not found in system."
 
     return (
         f"Order Details:\n"
-        f"ID: {order['id']}\n"
-        f"Customer: {customer_name} ({order['customer_id']})\n"
-        f"Amount: ${order['price']:.2f}\n"
-        f"Status: {order['status']}\n"
-        f"Days since delivery: {order['delivered_date_days_ago']}"
+        f"ID: {row[0]}\n"
+        f"Customer: {row[2]} ({row[1]})\n"
+        f"Amount: ${row[3]:.2f}\n"
+        f"Status: {row[4]}\n"
+        f"Days since delivery: {row[5]}"
     )
 
 
@@ -55,20 +74,23 @@ def get_customer_orders(customer_id: str) -> str:
     Returns:
         List of customer's orders as a formatted string
     """
-    orders = [
-        order
-        for order in backend_service.orders.values()
-        if order["customer_id"] == customer_id
-    ]
+    with db_engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT id, price, status, delivered_date_days_ago "
+                "FROM orders WHERE customer_id = :customer_id"
+            ),
+            {"customer_id": customer_id},
+        ).fetchall()
 
-    if not orders:
+    if not rows:
         return f"No orders found for customer {customer_id}."
 
     orders_text = f"Orders for customer {customer_id}:\n"
-    for order in orders:
+    for row in rows:
         orders_text += (
-            f"- {order['id']}: ${order['price']:.2f}, Status: {order['status']}, "
-            f"Delivered {order['delivered_date_days_ago']} days ago\n"
+            f"- {row[0]}: ${row[1]:.2f}, Status: {row[2]}, "
+            f"Delivered {row[3]} days ago\n"
         )
 
     return orders_text.rstrip()
@@ -85,16 +107,21 @@ def lookup_customer(customer_id: str) -> str:
     Returns:
         Customer details as a formatted string, or error message if not found
     """
-    customer = backend_service.get_customer(customer_id)
-    if not customer:
+    with db_engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT id, name, tier, email FROM customers WHERE id = :customer_id"),
+            {"customer_id": customer_id},
+        ).fetchone()
+
+    if not row:
         return f"Customer {customer_id} not found in system."
 
     return (
         f"Customer Details:\n"
-        f"ID: {customer['id']}\n"
-        f"Name: {customer['name']}\n"
-        f"Tier: {customer['tier'].upper()}\n"
-        f"Email: {customer['email']}"
+        f"ID: {row[0]}\n"
+        f"Name: {row[1]}\n"
+        f"Tier: {row[2].upper()}\n"
+        f"Email: {row[3]}"
     )
 
 
@@ -120,14 +147,12 @@ def process_refund_request(
         Refund decision (APPROVED, DENIED, or PENDING_REVIEW) as a formatted string
     """
     try:
-        # Convert tier string to enum
         tier_enum = {
             "standard": CustomerTier.STANDARD,
             "gold": CustomerTier.GOLD,
             "platinum": CustomerTier.PLATINUM,
         }.get(customer_tier.lower(), CustomerTier.STANDARD)
 
-        # Call business logic
         status = refund_processor.process_refund_request(
             order_id=order_id,
             customer_tier=tier_enum,
@@ -136,14 +161,18 @@ def process_refund_request(
             is_damaged=is_damaged,
         )
 
-        # Format response
         status_text = {
             RefundStatus.APPROVED: "APPROVED",
             RefundStatus.DENIED: "DENIED",
             RefundStatus.PENDING_REVIEW: "PENDING_REVIEW",
         }.get(status, "UNKNOWN")
 
-        return f"Refund Request Result:\n  Status: {status_text}\n  Order: {order_id}\n  Amount: ${order_total:.2f}"
+        return (
+            f"Refund Request Result:\n"
+            f"  Status: {status_text}\n"
+            f"  Order: {order_id}\n"
+            f"  Amount: ${order_total:.2f}"
+        )
 
     except Exception as e:
         return f"Error processing refund: {str(e)}"
@@ -186,7 +215,6 @@ def calculate_shipping_cost(
         Shipping cost as a formatted string
     """
     try:
-        # Convert shipping speed to enum
         speed_enum = {
             "standard": ShippingSpeed.STANDARD,
             "expedited": ShippingSpeed.EXPEDITED,
@@ -201,8 +229,7 @@ def calculate_shipping_cost(
 
         if cost == 0:
             return f"Free {shipping_speed.lower()} shipping for this order."
-        else:
-            return f"{shipping_speed.lower().capitalize()} shipping costs ${cost:.2f}"
+        return f"{shipping_speed.lower().capitalize()} shipping costs ${cost:.2f}"
 
     except Exception as e:
         return f"Error calculating shipping: {str(e)}"
@@ -220,7 +247,6 @@ def check_can_cancel_order(order_status: str) -> str:
         Whether the order can be cancelled (yes/no) as a formatted string
     """
     try:
-        # Convert status to enum
         status_enum = {
             "pending": OrderStatus.PENDING,
             "processing": OrderStatus.PROCESSING,
@@ -248,7 +274,6 @@ def check_can_modify_order(order_status: str) -> str:
         Whether the order can be modified (yes/no) as a formatted string
     """
     try:
-        # Convert status to enum
         status_enum = {
             "pending": OrderStatus.PENDING,
             "processing": OrderStatus.PROCESSING,
@@ -276,7 +301,6 @@ def get_delivery_estimate(shipping_speed: str) -> str:
         Estimated delivery time as a formatted string
     """
     try:
-        # Convert shipping speed to enum
         speed_enum = {
             "standard": ShippingSpeed.STANDARD,
             "expedited": ShippingSpeed.EXPEDITED,

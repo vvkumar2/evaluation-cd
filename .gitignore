@@ -8,3 +8,6 @@ build/
 # Project files
 *.env
 tests/
+
+# SQLite databases
+*.db
