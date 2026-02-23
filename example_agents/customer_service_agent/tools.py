@@ -301,11 +301,15 @@ def get_delivery_estimate(shipping_speed: str) -> str:
         Estimated delivery time as a formatted string
     """
     try:
-        speed_enum = {
+        speed_map = {
             "standard": ShippingSpeed.STANDARD,
             "expedited": ShippingSpeed.EXPEDITED,
             "express": ShippingSpeed.EXPRESS,
-        }.get(shipping_speed.lower(), ShippingSpeed.STANDARD)
+        }
+        speed_enum = speed_map.get(shipping_speed.lower())
+        if speed_enum is None:
+            valid = ", ".join(speed_map.keys())
+            return f"Invalid shipping speed: '{shipping_speed}'. Valid options are: {valid}"
 
         estimate = order_manager.get_delivery_estimate(speed_enum)
         return f"Estimated delivery time for {shipping_speed.lower()}: {estimate}"

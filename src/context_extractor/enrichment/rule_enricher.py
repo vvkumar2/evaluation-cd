@@ -23,12 +23,15 @@ class RuleEnricher:
         tools: EnrichedToolSchemaList,
         entities: EntitySchemaList,
         intent: Intent,
+        external_tool_names: list[str],
     ) -> StructuredIntent:
         """Convert natural language rules to structured rules."""
         if not self.client:
             return self._intent_to_structured(intent, [])
 
-        structured_rules = self._enrich_rules(tools, entities, intent)
+        structured_rules = self._enrich_rules(
+            tools, entities, intent, external_tool_names
+        )
 
         return StructuredIntent(
             name=intent.name,
@@ -45,6 +48,7 @@ class RuleEnricher:
         tools: EnrichedToolSchemaList,
         entities: EntitySchemaList,
         intent: Intent,
+        external_tool_names: list[str],
     ) -> list[StructuredIntentRule]:
         """Use LLM to convert natural language rules to structured rules."""
         entities_text = self._format_entities(entities)
@@ -52,6 +56,9 @@ class RuleEnricher:
         rules_text = self._format_rules(intent)
         outcomes_text = self._format_outcomes(intent)
         slots_text = self._format_slots(intent)
+        external_tools_text = (
+            ", ".join(external_tool_names) if external_tool_names else "none"
+        )
 
         llm_prompt = RULES_STRUCTURING_PROMPT.format(
             intent_name=intent.name,
@@ -60,6 +67,7 @@ class RuleEnricher:
             outcomes_text=outcomes_text,
             entities_text=entities_text,
             tools_text=tools_text,
+            external_tools_text=external_tools_text,
             rules_text=rules_text,
         )
 
@@ -167,6 +175,7 @@ class RuleEnricher:
                 conditions=conditions,
                 outcome=rule_def.get("outcome", ""),
                 expected_behavior=rule_def.get("expected_behavior", ""),
+                expected_tool_calls=rule_def.get("expected_tool_calls", []),
             )
             rules.append(rule)
 

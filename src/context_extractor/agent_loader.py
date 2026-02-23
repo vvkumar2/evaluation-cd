@@ -4,6 +4,14 @@ from importlib import import_module
 from pathlib import Path
 import yaml
 
+from ..config import (
+    AGENT_TOOLS_FILE,
+    AGENT_ENTRY_FILE,
+    AGENT_ENTITY_SCHEMA_FILE,
+    AGENT_SYSTEM_PROMPT_VAR,
+    AGENT_GET_TOOLS_FUNC,
+)
+
 
 class AgentLoader:
     def __init__(self, agent_dir: Path | str):
@@ -12,18 +20,20 @@ class AgentLoader:
             raise ValueError(f"Agent directory not found: {agent_dir}")
 
     def load_tools_schema(self) -> dict:
-        """Load tools from tools.py."""
-        tools_file = self.agent_dir / "tools.py"
+        """Load tools from the agent's tools file and external tools from entity schema."""
+        tools_file = self.agent_dir / AGENT_TOOLS_FILE
         if not tools_file.exists():
-            raise FileNotFoundError(f"tools.py not found in {self.agent_dir}")
+            raise FileNotFoundError(f"{AGENT_TOOLS_FILE} not found in {self.agent_dir}")
+
+        tools_module_name = AGENT_TOOLS_FILE.removesuffix(".py")
 
         sys.path.insert(0, str(self.agent_dir))
         sys.path.insert(0, str(self.agent_dir.parent))
 
         try:
-            module = import_module(f"{self.agent_dir.name}.tools")
-            get_tools = getattr(module, "get_tools")
-            tools = get_tools()
+            module = import_module(f"{self.agent_dir.name}.{tools_module_name}")
+            get_tools_fn = getattr(module, AGENT_GET_TOOLS_FUNC)
+            tools = get_tools_fn()
 
             tools_schema = {"tools": []}
             for tool in tools:
@@ -44,6 +54,33 @@ class AgentLoader:
 
                 tools_schema["tools"].append(tool_def)
 
+            # Merge external tools from entity schema (e.g., MCP tools)
+            entity_data = self.load_entity_schema()
+            for ext_tool in entity_data.get("external_tools", []):
+                properties = {}
+                required = []
+                for param_name, param_def in ext_tool.get("parameters", {}).items():
+                    properties[param_name] = {
+                        "type": param_def.get("type", "string"),
+                        "description": param_def.get("description", ""),
+                    }
+                    if param_def.get("required", False):
+                        required.append(param_name)
+
+                tool_def = {
+                    "type": "function",
+                    "function": {
+                        "name": ext_tool["name"],
+                        "description": ext_tool.get("description", ""),
+                        "parameters": {
+                            "type": "object",
+                            "properties": properties,
+                            "required": required,
+                        },
+                    },
+                }
+                tools_schema["tools"].append(tool_def)
+
             return tools_schema
 
         except Exception as e:
@@ -55,55 +92,39 @@ class AgentLoader:
                 sys.path.remove(str(self.agent_dir.parent))
 
     def load_entity_schema(self) -> dict:
-        """Load entities from entity_schema.yml file."""
-        for filename in [
-            "entity_schema.yml",
-            "entity_schema.yaml",
-            "entities.yml",
-            "entities.yaml",
-        ]:
-            schema_file = self.agent_dir / filename
-            if schema_file.exists():
-                try:
-                    with open(schema_file) as f:
-                        return yaml.safe_load(f)
+        """Load entities from entity schema file."""
+        schema_file = self.agent_dir / AGENT_ENTITY_SCHEMA_FILE
+        if not schema_file.exists():
+            raise FileNotFoundError(
+                f"{AGENT_ENTITY_SCHEMA_FILE} not found in {self.agent_dir}"
+            )
 
-                except Exception as e:
-                    raise RuntimeError(
-                        f"Failed to load entity schema from {schema_file}: {e}"
-                    ) from e
-
-        raise FileNotFoundError(
-            f"No entity schema file found in {self.agent_dir} "
-            "(looked for: entity_schema.yml, entity_schema.yaml, entities.yml, entities.yaml)"
-        )
+        with open(schema_file) as f:
+            return yaml.safe_load(f)
 
     def load_system_prompt(self) -> str:
-        """Load system prompt from agent.py."""
-        agent_file = self.agent_dir / "agent.py"
+        """Load system prompt from agent entry file."""
+        agent_file = self.agent_dir / AGENT_ENTRY_FILE
         if not agent_file.exists():
-            raise FileNotFoundError(f"agent.py not found in {self.agent_dir}")
+            raise FileNotFoundError(f"{AGENT_ENTRY_FILE} not found in {self.agent_dir}")
 
-        try:
-            content = agent_file.read_text()
-            patterns = [
-                r'SYSTEM_PROMPT\s*=\s*"""(.*?)"""',
-                r"SYSTEM_PROMPT\s*=\s*'''(.*?)'''",
-                r'SYSTEM_PROMPT\s*=\s*"(.*?)"',
-                r"SYSTEM_PROMPT\s*=\s*'(.*?)'",
-            ]
+        content = agent_file.read_text()
+        var = AGENT_SYSTEM_PROMPT_VAR
+        patterns = [
+            rf'{var}\s*=\s*"""(.*?)"""',
+            rf"{var}\s*=\s*'''(.*?)'''",
+            rf'{var}\s*=\s*"(.*?)"',
+            rf"{var}\s*=\s*'(.*?)'",
+        ]
 
-            for pattern in patterns:
-                match = re.search(pattern, content, re.DOTALL)
-                if match:
-                    return match.group(1).strip()
+        for pattern in patterns:
+            match = re.search(pattern, content, re.DOTALL)
+            if match:
+                return match.group(1).strip()
 
-            raise ValueError("SYSTEM_PROMPT constant not found in agent.py")
-
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to extract system prompt from {agent_file}: {e}"
-            ) from e
+        raise ValueError(
+            f"{AGENT_SYSTEM_PROMPT_VAR} constant not found in {AGENT_ENTRY_FILE}"
+        )
 
     def load_all(self) -> tuple[dict, dict, str]:
         return (

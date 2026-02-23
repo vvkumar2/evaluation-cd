@@ -18,6 +18,7 @@ class StructuredIntentRule(BaseModel):
     conditions: list[StructuredCondition]
     outcome: str
     expected_behavior: str
+    expected_tool_calls: list[str]
 
 
 class IntentRequiredSlot(BaseModel):

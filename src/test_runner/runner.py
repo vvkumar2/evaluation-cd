@@ -1,8 +1,11 @@
 """Main test runner that orchestrates test execution and evaluation."""
 
+import asyncio
+import time
 from pathlib import Path
 import yaml
 from ..test_generator.schemas import GeneratedTestSuite
+from ..config import AGENT_ENTITY_SCHEMA_FILE
 from .evaluator import BehaviorEvaluator
 from .executor import AgentExecutor
 from .schemas import TestResult, TestResultList, TestRunReport
@@ -20,6 +23,7 @@ class TestRunner:
         """
         self.llm_client = llm_client
         self.evaluator = BehaviorEvaluator(llm_client)
+        self._external_tool_names = set()
 
     def run_tests(
         self, test_suite_file: Path | str, agent_dir: Path | str
@@ -34,20 +38,41 @@ class TestRunner:
         Returns:
             TestRunReport with results
         """
+        return asyncio.run(self._run_tests_async(test_suite_file, agent_dir))
+
+    async def _run_tests_async(
+        self, test_suite_file: Path | str, agent_dir: Path | str
+    ) -> TestRunReport:
+        """Async implementation of run_tests — single event loop for all tests."""
         # Load test suite
         test_suite = self._load_test_suite(test_suite_file)
 
-        # Initialize agent executor
-        executor = AgentExecutor(agent_dir)
+        # Load external tool names for filtering
+        agent_path = Path(agent_dir)
+        entity_schema_path = agent_path / AGENT_ENTITY_SCHEMA_FILE
+        with open(entity_schema_path) as f:
+            entity_data = yaml.safe_load(f)
+        self._external_tool_names = {
+            t["name"] for t in entity_data.get("external_tools", [])
+        }
 
-        # Run each test
-        results = []
-        for test_case in test_suite.test_cases:
-            result = self._run_single_test(executor, test_case)
-            results.append(result)
+        # Initialize agent executor and load tools once
+        executor = AgentExecutor(agent_dir)
+        await executor.setup_tools()
+
+        start = time.monotonic()
+        try:
+            # Run each test
+            results = []
+            for test_case in test_suite.test_cases:
+                result = await self._run_single_test(executor, test_case)
+                results.append(result)
+        finally:
+            await executor.cleanup_tools()
+        duration_seconds = time.monotonic() - start
 
         # Generate report
-        return self._generate_report(test_suite.agent_name, results)
+        return self._generate_report(test_suite.agent_name, results, duration_seconds)
 
     def _load_test_suite(self, test_suite_file: Path | str) -> GeneratedTestSuite:
         """Load test suite from YAML file."""
@@ -58,16 +83,26 @@ class TestRunner:
 
         return GeneratedTestSuite.model_validate(data)
 
-    def _run_single_test(self, executor: AgentExecutor, test_case) -> TestResult:
+    async def _run_single_test(self, executor: AgentExecutor, test_case) -> TestResult:
         """Run a single test case and evaluate result."""
+        expected_tool_calls = getattr(test_case, "expected_tool_calls", []) or []
+        input_message = test_case.input.message
+        input_context = test_case.input.context or {}
+        backend_state = test_case.backend_state
+
         try:
-            # Execute test
-            output = executor.execute_test(test_case)
+            # Execute test and filter to external tools only
+            output, raw_tool_calls = await executor.execute_test(test_case)
+            actual_tool_calls = [
+                t for t in raw_tool_calls if t in self._external_tool_names
+            ]
 
             # Evaluate output
             score, reasoning = self.evaluator.evaluate(
                 actual_output=output,
                 expected_behavior=test_case.expected_behavior,
+                expected_tool_calls=expected_tool_calls,
+                actual_tool_calls=actual_tool_calls,
             )
 
             # Determine pass/fail (7 or higher is passing)
@@ -79,7 +114,12 @@ class TestRunner:
                 passed=passed,
                 score=score,
                 reasoning=reasoning,
+                input_message=input_message,
+                input_context=input_context,
+                backend_state=backend_state,
                 output=output,
+                expected_tool_calls=expected_tool_calls,
+                actual_tool_calls=actual_tool_calls,
             )
 
         except Exception as e:
@@ -90,11 +130,16 @@ class TestRunner:
                 passed=False,
                 score=1,
                 reasoning=f"Error executing test: {str(e)}",
+                input_message=input_message,
+                input_context=input_context,
+                backend_state=backend_state,
                 output="",
+                expected_tool_calls=expected_tool_calls,
+                actual_tool_calls=[],
             )
 
     def _generate_report(
-        self, agent_name: str, results: list[TestResult]
+        self, agent_name: str, results: list[TestResult], duration_seconds: float
     ) -> TestRunReport:
         """Generate test run report from results."""
         total = len(results)
@@ -108,5 +153,6 @@ class TestRunner:
             passed_tests=passed,
             failed_tests=failed,
             pass_rate=pass_rate,
+            duration_seconds=round(duration_seconds, 1),
             results=TestResultList(results=results),
         )

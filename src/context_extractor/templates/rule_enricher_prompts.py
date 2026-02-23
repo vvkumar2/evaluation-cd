@@ -35,10 +35,10 @@ Output:
 ```json
 {{
   "rules": [
-    {{"id": "damaged_approved", "conditions": [{{"field": "is_damaged", "operator": "eq", "value": true}}], "outcome": "APPROVED", "expected_behavior": "Refund approved for damaged item."}},
-    {{"id": "standard_outside_window", "conditions": [{{"field": "customer.tier", "operator": "eq", "value": "standard"}}, {{"field": "order.delivered_date_days_ago", "operator": "gt", "value": 30}}, {{"field": "is_damaged", "operator": "eq", "value": false}}], "outcome": "DENIED", "expected_behavior": "Refund denied: outside 30-day window for Standard tier."}},
-    {{"id": "auto_approve_under_200", "conditions": [{{"field": "is_damaged", "operator": "eq", "value": false}}, {{"field": "order.price", "operator": "lt", "value": 200}}], "outcome": "APPROVED", "expected_behavior": "Refund approved."}},
-    {{"id": "pending_200_to_1000", "conditions": [{{"field": "is_damaged", "operator": "eq", "value": false}}, {{"field": "order.price", "operator": "gte", "value": 200}}, {{"field": "order.price", "operator": "lte", "value": 1000}}], "outcome": "PENDING_REVIEW", "expected_behavior": "Refund requires manager approval."}}
+    {{"id": "damaged_approved", "conditions": [{{"field": "is_damaged", "operator": "eq", "value": true}}], "outcome": "APPROVED", "expected_behavior": "Refund approved for damaged item.", "expected_tool_calls": []}},
+    {{"id": "standard_outside_window", "conditions": [{{"field": "customer.tier", "operator": "eq", "value": "standard"}}, {{"field": "order.delivered_date_days_ago", "operator": "gt", "value": 30}}, {{"field": "is_damaged", "operator": "eq", "value": false}}], "outcome": "DENIED", "expected_behavior": "Refund denied: outside 30-day window for Standard tier.", "expected_tool_calls": []}},
+    {{"id": "auto_approve_under_200", "conditions": [{{"field": "is_damaged", "operator": "eq", "value": false}}, {{"field": "order.price", "operator": "lt", "value": 200}}], "outcome": "APPROVED", "expected_behavior": "Refund approved.", "expected_tool_calls": []}},
+    {{"id": "pending_200_to_1000", "conditions": [{{"field": "is_damaged", "operator": "eq", "value": false}}, {{"field": "order.price", "operator": "gte", "value": 200}}, {{"field": "order.price", "operator": "lte", "value": 1000}}], "outcome": "PENDING_REVIEW", "expected_behavior": "Refund requires manager approval.", "expected_tool_calls": ["slack_post_message"]}}
   ]
 }}
 ```
@@ -68,6 +68,9 @@ Entity definitions:
 Available tools:
 {tools_text}
 
+External tools (MCP):
+{external_tools_text}
+
 Natural language rules to convert:
 {rules_text}
 
@@ -77,6 +80,7 @@ Convert ONLY these rules into structured format. For each rule, include:
 - **conditions**: List of conditions that must be true
 - **outcome**: The outcome this rule leads to
 - **expected_behavior**: Core facts/outcome agent must communicate (concise, objective)
+- **expected_tool_calls**: List of external/MCP tool names the agent must call when this rule matches. ONLY use tool names from the "External tools (MCP)" list above. Use an empty list if no external tools are needed.
 
 Output valid JSON:
 {{
@@ -88,7 +92,8 @@ Output valid JSON:
         {{"field": "entity.field", "operator": "op", "value": "val"}}
       ],
       "outcome": "outcome_name",
-      "expected_behavior": "what the agent should do when this rule matches"
+      "expected_behavior": "what the agent should do when this rule matches",
+      "expected_tool_calls": ["tool_name_1", "tool_name_2"]
     }}
   ]
 }}"""

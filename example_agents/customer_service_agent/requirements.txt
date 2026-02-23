@@ -3,6 +3,10 @@ langchain>=1.0.0
 langchain-core>=0.1.0
 langchain-openai>=0.1.0
 
+# MCP integration
+langchain-mcp-adapters>=0.1.0
+mcp>=1.0.0
+
 # Database
 sqlalchemy>=2.0.0
 

@@ -11,7 +11,18 @@ class TestResult(BaseModel):
     passed: bool = Field(description="True if score >= 7")
     score: int = Field(description="Score from 1-10 from LLM")
     reasoning: str = Field(description="LLM reasoning for the score")
+    input_message: str = Field(description="Message sent to the agent")
+    input_context: dict = Field(
+        default_factory=dict, description="Context dict sent to the agent"
+    )
+    backend_state: dict = Field(
+        default_factory=dict, description="Backend state seeded for the test"
+    )
     output: str = Field(description="Agent's actual response")
+    expected_tool_calls: list[str] = Field(
+        description="Tools the agent should have called"
+    )
+    actual_tool_calls: list[str] = Field(description="Tools the agent actually called")
 
 
 class TestResultList(BaseModel):
@@ -36,6 +47,9 @@ class TestRunReport(BaseModel):
     passed_tests: int = Field(description="Number of tests passed")
     failed_tests: int = Field(description="Number of tests failed")
     pass_rate: float = Field(description="Pass rate as decimal (e.g., 0.93)")
+    duration_seconds: float = Field(
+        description="Total time to run all tests in seconds"
+    )
     results: TestResultList = Field(description="All individual test results")
 
     def summary(self) -> str:

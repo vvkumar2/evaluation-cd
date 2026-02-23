@@ -1,11 +1,18 @@
 """Execute agent with test cases."""
 
+import inspect
 import os
 import sys
 from importlib import import_module
 from pathlib import Path
 from sqlalchemy import text
 from ..test_generator.schemas import GeneratedTestCase
+from ..config import (
+    AGENT_TOOLS_FILE,
+    AGENT_ENTRY_FILE,
+    AGENT_HANDLE_MESSAGE_FUNC,
+    AGENT_DB_ENGINE_ATTR,
+)
 
 
 class AgentExecutor:
@@ -19,12 +26,17 @@ class AgentExecutor:
             agent_dir: Path to agent directory
         """
         self.agent_dir = Path(agent_dir)
+        self._tools = None
+        self._mcp_stack = None
         self._import_agent()
 
     def _import_agent(self):
         """Import agent module and set up database connection."""
         agent_dir_str = str(self.agent_dir)
         agent_parent_str = str(self.agent_dir.parent)
+
+        tools_module_name = AGENT_TOOLS_FILE.removesuffix(".py")
+        agent_module_name = AGENT_ENTRY_FILE.removesuffix(".py")
 
         # Set test mode env vars BEFORE importing tools (read at module load time)
         os.environ["AGENT_TEST_MODE"] = "true"
@@ -37,20 +49,32 @@ class AgentExecutor:
         if agent_parent_str not in sys.path:
             sys.path.insert(0, agent_parent_str)
 
-        # Import tools FIRST using the same module name agent.py will use
-        # This ensures we get the same db_engine instance
+        # Import tools FIRST so the agent module reuses the same instance
         try:
-            tools_module = import_module("tools")
-            self._db_engine = tools_module.db_engine
+            tools_module = import_module(tools_module_name)
+            self._db_engine = getattr(tools_module, AGENT_DB_ENGINE_ATTR)
 
-            # Now import agent.py which will use the same tools module
-            self.agent_module = import_module("agent")
-        except ImportError as e:
+            self.agent_module = import_module(agent_module_name)
+            self._handle_message = getattr(self.agent_module, AGENT_HANDLE_MESSAGE_FUNC)
+        except (ImportError, AttributeError) as e:
             raise RuntimeError(
                 f"Failed to import agent from {self.agent_dir}: {e}"
             ) from e
 
-    def execute_test(self, test_case: GeneratedTestCase) -> str:
+    async def setup_tools(self):
+        """Load all tools (including MCP) once. Must be called before execute_test."""
+        load_all_tools = getattr(self.agent_module, "load_all_tools", None)
+        if not load_all_tools:
+            raise RuntimeError("Agent module does not export load_all_tools()")
+        self._tools, self._mcp_stack = await load_all_tools()
+
+    async def cleanup_tools(self):
+        """Close MCP session if one was opened."""
+        if self._mcp_stack:
+            await self._mcp_stack.aclose()
+            self._mcp_stack = None
+
+    async def execute_test(self, test_case: GeneratedTestCase) -> tuple[str, list[str]]:
         """
         Execute a test case against the agent.
 
@@ -58,16 +82,20 @@ class AgentExecutor:
             test_case: The test case to execute
 
         Returns:
-            Agent's response as a string
+            Tuple of (agent response text, list of tool names called)
         """
         self._setup_backend(test_case.backend_state)
 
         try:
-            response = self.agent_module.handle_message(
+            result = self._handle_message(
                 test_case.input.message,
                 test_case.input.context,
+                self._tools,
             )
-            return str(response)
+            if inspect.isawaitable(result):
+                result = await result
+            response, tool_calls = result
+            return str(response), tool_calls
         except Exception as e:
             raise RuntimeError(f"Agent execution failed: {e}") from e
         finally:

@@ -1,17 +1,13 @@
 """Generate HTML reports for test execution results."""
 
+import json
+from datetime import datetime
 from pathlib import Path
 from .schemas import TestRunReport
 
 
 def generate_html_report(report: TestRunReport, output_path: Path) -> None:
-    """Generate an HTML report from test results.
-
-    Args:
-        report: TestRunReport object with results
-        output_path: Path to save HTML file
-    """
-    # Sort tests: failed first, then passed
+    """Generate an HTML report from test results."""
     all_results = report.results.results
     failed_tests = [r for r in all_results if not r.passed]
     passed_tests = [r for r in all_results if r.passed]
@@ -24,280 +20,392 @@ def generate_html_report(report: TestRunReport, output_path: Path) -> None:
 
 
 def _generate_html(report: TestRunReport, failed_tests, passed_tests) -> str:
-    """Generate HTML content for the report."""
+    timestamp = datetime.now().strftime("%B %d, %Y at %H:%M")
+    pass_pct = report.pass_rate * 100
+    # Color the progress bar based on pass rate
+    if pass_pct >= 80:
+        bar_color = "#16a34a"
+    elif pass_pct >= 60:
+        bar_color = "#ca8a04"
+    else:
+        bar_color = "#dc2626"
+
+    avg_score = 0
+    if report.total_tests > 0:
+        avg_score = sum(r.score for r in report.results.results) / report.total_tests
+
+    duration = report.duration_seconds
+    if duration >= 60:
+        duration_str = f"{int(duration // 60)}m {int(duration % 60)}s"
+    else:
+        duration_str = f"{duration:.1f}s"
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Report - {report.agent_name.title()}</title>
+    <title>Test Report — {_escape_html(report.agent_name)}</title>
     <style>
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {{
+            --bg: #f8f9fb;
+            --surface: #ffffff;
+            --border: #e2e5e9;
+            --text: #1a1d23;
+            --text-secondary: #5f6672;
+            --text-tertiary: #8b919d;
+            --green: #16a34a;
+            --green-bg: #f0fdf4;
+            --green-border: #bbf7d0;
+            --red: #dc2626;
+            --red-bg: #fef2f2;
+            --red-border: #fecaca;
+            --blue: #2563eb;
+            --blue-bg: #eff6ff;
+            --radius: 6px;
+            --mono: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
         }}
+
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
 
         body {{
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }}
+
+        .page {{ max-width: 1200px; margin: 0 auto; padding: 40px 24px; }}
+
+        /* Header */
+        .report-header {{
+            margin-bottom: 32px;
+        }}
+        .report-header h1 {{
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }}
+        .report-header .meta {{
+            color: var(--text-tertiary);
+            font-size: 13px;
+            margin-top: 4px;
+        }}
+
+        /* Stats row */
+        .stats {{
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }}
+        .stat-card {{
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
             padding: 20px;
         }}
-
-        .container {{
-            max-width: 1000px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-        }}
-
-        .header {{
-            background: #667eea;
-            color: white;
-            padding: 40px 30px;
-            text-align: center;
-        }}
-
-        .header h1 {{
-            font-size: 32px;
-            margin-bottom: 10px;
-        }}
-
-        .header p {{
-            font-size: 16px;
-            opacity: 0.9;
-        }}
-
-        .summary {{
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-            padding: 30px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e0e0e0;
-        }}
-
-        .summary-card {{
-            text-align: center;
-        }}
-
-        .summary-card .value {{
-            font-size: 32px;
-            font-weight: bold;
-            color: #667eea;
-        }}
-
-        .summary-card .label {{
-            font-size: 14px;
-            color: #666;
-            margin-top: 5px;
-        }}
-
-        .summary-card.pass-rate .value {{
-            color: #10b981;
-        }}
-
-        .content {{
-            padding: 30px;
-        }}
-
-        .section {{
-            margin-bottom: 30px;
-        }}
-
-        .section-title {{
-            font-size: 20px;
+        .stat-card .stat-value {{
+            font-size: 28px;
             font-weight: 600;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #667eea;
-            color: #333;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
         }}
-
-        .test-item {{
-            background: #f8f9fa;
-            border-left: 4px solid #667eea;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            overflow: hidden;
+        .stat-card .stat-label {{
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 6px;
         }}
+        .stat-card.green .stat-value {{ color: var(--green); }}
+        .stat-card.red .stat-value {{ color: var(--red); }}
 
-        .test-item.failed {{
-            border-left-color: #ef4444;
-            background: #fef2f2;
+        /* Progress bar */
+        .progress-section {{
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 32px;
         }}
-
-        .test-item.passed {{
-            border-left-color: #10b981;
-            background: #f0fdf4;
-        }}
-
-        .test-header {{
-            padding: 15px 20px;
-            cursor: pointer;
+        .progress-header {{
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            transition: background 0.2s;
+            align-items: baseline;
+            margin-bottom: 10px;
+        }}
+        .progress-header .label {{
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }}
+        .progress-header .value {{
+            font-size: 13px;
+            font-weight: 600;
+        }}
+        .progress-bar {{
+            height: 8px;
+            background: var(--bg);
+            border-radius: 4px;
+            overflow: hidden;
+        }}
+        .progress-fill {{
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.4s ease;
         }}
 
-        .test-header:hover {{
-            background: rgba(102, 126, 234, 0.05);
+        /* Test sections */
+        .section {{
+            margin-bottom: 28px;
         }}
-
-        .test-header-left {{
+        .section-header {{
             display: flex;
             align-items: center;
-            gap: 15px;
-            flex: 1;
+            gap: 8px;
+            margin-bottom: 12px;
         }}
-
-        .test-status {{
-            font-size: 24px;
-            min-width: 30px;
-        }}
-
-        .test-info {{
-            flex: 1;
-        }}
-
-        .test-id {{
-            font-weight: 600;
-            color: #333;
+        .section-header h2 {{
             font-size: 14px;
-        }}
-
-        .test-intent {{
-            font-size: 12px;
-            color: #666;
-            margin-top: 3px;
-        }}
-
-        .test-score {{
-            text-align: right;
-            min-width: 80px;
-        }}
-
-        .score-badge {{
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
             font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-secondary);
+        }}
+        .section-count {{
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: var(--bg);
+            color: var(--text-tertiary);
+        }}
+
+        /* Test items */
+        .test-list {{
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }}
+        .test-row {{
+            border-bottom: 1px solid var(--border);
+        }}
+        .test-row:last-child {{
+            border-bottom: none;
+        }}
+        .test-row-header {{
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            cursor: pointer;
+            gap: 12px;
+            user-select: none;
+            transition: background 0.15s;
+        }}
+        .test-row-header:hover {{
+            background: var(--bg);
+        }}
+        .status-dot {{
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }}
+        .status-dot.pass {{ background: var(--green); }}
+        .status-dot.fail {{ background: var(--red); }}
+        .test-name {{
+            flex: 1;
+            min-width: 0;
             font-size: 13px;
+            font-weight: 500;
+            font-family: var(--mono);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }}
-
-        .score-badge.pass {{
-            background: #d1fae5;
-            color: #047857;
+        .test-intent-tag {{
+            font-size: 11px;
+            color: var(--text-tertiary);
+            background: var(--bg);
+            padding: 2px 8px;
+            border-radius: 3px;
+            white-space: nowrap;
         }}
-
-        .score-badge.fail {{
-            background: #fee2e2;
-            color: #dc2626;
+        .score-pill {{
+            font-size: 12px;
+            font-weight: 600;
+            font-family: var(--mono);
+            min-width: 42px;
+            text-align: center;
+            padding: 3px 8px;
+            border-radius: 3px;
         }}
-
-        .test-toggle {{
-            color: #999;
-            font-size: 18px;
+        .score-pill.pass {{
+            background: var(--green-bg);
+            color: var(--green);
+        }}
+        .score-pill.fail {{
+            background: var(--red-bg);
+            color: var(--red);
+        }}
+        .chevron {{
+            color: var(--text-tertiary);
+            font-size: 14px;
             transition: transform 0.2s;
+            flex-shrink: 0;
+            width: 16px;
+            text-align: center;
         }}
-
-        .test-toggle.open {{
+        .chevron.open {{
             transform: rotate(90deg);
         }}
 
-        .test-details {{
+        /* Expanded detail panel */
+        .test-detail {{
             display: none;
-            padding: 20px;
-            background: white;
-            border-top: 1px solid #e0e0e0;
+            padding: 0 16px 16px 38px;
         }}
-
-        .test-details.open {{
+        .test-detail.open {{
             display: block;
         }}
-
-        .detail-section {{
-            margin-bottom: 15px;
+        .detail-grid {{
+            display: grid;
+            gap: 12px;
         }}
-
-        .detail-label {{
-            font-size: 12px;
+        .detail-block {{
+        }}
+        .detail-block-label {{
+            font-size: 11px;
             font-weight: 600;
-            color: #667eea;
             text-transform: uppercase;
-            margin-bottom: 5px;
+            letter-spacing: 0.05em;
+            color: var(--text-tertiary);
+            margin-bottom: 4px;
         }}
-
-        .detail-content {{
-            font-family: "Courier New", monospace;
+        .detail-block-content {{
             font-size: 13px;
-            background: #f5f5f5;
-            padding: 12px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            background: var(--bg);
+            padding: 10px 12px;
             border-radius: 4px;
-            max-height: 300px;
-            overflow-y: auto;
-            color: #333;
-            line-height: 1.5;
+            border: 1px solid var(--border);
+        }}
+        pre.detail-block-content {{
+            font-family: var(--mono);
+            font-size: 12px;
             white-space: pre-wrap;
             word-break: break-word;
+            max-height: 280px;
+            overflow-y: auto;
+        }}
+
+        /* Tool calls comparison */
+        .tool-calls-row {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }}
+        .tool-tag {{
+            display: inline-block;
+            font-size: 11px;
+            font-family: var(--mono);
+            padding: 2px 7px;
+            border-radius: 3px;
+            margin: 2px 2px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }}
+        .tool-tag.match {{
+            background: var(--green-bg);
+            border-color: var(--green-border);
+            color: var(--green);
+        }}
+        .tool-tag.missing {{
+            background: var(--red-bg);
+            border-color: var(--red-border);
+            color: var(--red);
+        }}
+        .tool-tag.extra {{
+            background: var(--blue-bg);
+            border-color: #bfdbfe;
+            color: var(--blue);
         }}
 
         .empty-state {{
             text-align: center;
-            padding: 40px 20px;
-            color: #999;
+            padding: 60px 20px;
+            color: var(--text-tertiary);
+            font-size: 14px;
         }}
 
-        .empty-state p {{
-            font-size: 16px;
+        @media (max-width: 640px) {{
+            .stats {{ grid-template-columns: repeat(2, 1fr); }}
+            .tool-calls-row {{ grid-template-columns: 1fr; }}
+            .test-intent-tag {{ display: none; }}
         }}
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>{report.agent_name.title()}</h1>
-            <p>Test Execution Report</p>
+    <div class="page">
+        <div class="report-header">
+            <h1>{_escape_html(report.agent_name)}</h1>
+            <div class="meta">Evaluation report &middot; {timestamp} &middot; {report.total_tests} tests &middot; {duration_str}</div>
         </div>
 
-        <div class="summary">
-            <div class="summary-card">
-                <div class="value">{report.total_tests}</div>
-                <div class="label">Total Tests</div>
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value">{report.total_tests}</div>
+                <div class="stat-label">Total</div>
             </div>
-            <div class="summary-card">
-                <div class="value">{report.passed_tests}</div>
-                <div class="label">Passed</div>
+            <div class="stat-card green">
+                <div class="stat-value">{report.passed_tests}</div>
+                <div class="stat-label">Passed</div>
             </div>
-            <div class="summary-card">
-                <div class="value">{report.failed_tests}</div>
-                <div class="label">Failed</div>
+            <div class="stat-card red">
+                <div class="stat-value">{report.failed_tests}</div>
+                <div class="stat-label">Failed</div>
             </div>
-            <div class="summary-card pass-rate">
-                <div class="value">{report.pass_rate*100:.1f}%</div>
-                <div class="label">Pass Rate</div>
+            <div class="stat-card">
+                <div class="stat-value">{avg_score:.1f}</div>
+                <div class="stat-label">Avg Score</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{duration_str}</div>
+                <div class="stat-label">Duration</div>
             </div>
         </div>
 
-        <div class="content">
-            {_render_tests_section("Failed Tests", failed_tests, "failed") if failed_tests else ""}
-            {_render_tests_section("Passed Tests", passed_tests, "passed") if passed_tests else ""}
-            {_render_empty_state(report.total_tests)}
+        <div class="progress-section">
+            <div class="progress-header">
+                <span class="label">Pass Rate</span>
+                <span class="value" style="color: {bar_color}">{pass_pct:.1f}%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {pass_pct:.1f}%; background: {bar_color}"></div>
+            </div>
         </div>
+
+        {_render_tests_section("Failed", failed_tests, "fail") if failed_tests else ""}
+        {_render_tests_section("Passed", passed_tests, "pass") if passed_tests else ""}
+        {_render_empty_state(report.total_tests)}
     </div>
 
     <script>
-        document.querySelectorAll('.test-header').forEach(header => {{
-            header.addEventListener('click', function() {{
-                const details = this.nextElementSibling;
-                const toggle = this.querySelector('.test-toggle');
-
-                details.classList.toggle('open');
-                toggle.classList.toggle('open');
+        document.querySelectorAll('.test-row-header').forEach(header => {{
+            header.addEventListener('click', () => {{
+                const detail = header.nextElementSibling;
+                const chevron = header.querySelector('.chevron');
+                detail.classList.toggle('open');
+                chevron.classList.toggle('open');
             }});
         }});
     </script>
@@ -305,66 +413,108 @@ def _generate_html(report: TestRunReport, failed_tests, passed_tests) -> str:
 </html>"""
 
 
-def _render_tests_section(title: str, tests, test_class: str) -> str:
-    """Render a section of tests."""
+def _render_tests_section(title: str, tests, status_class: str) -> str:
     if not tests:
         return ""
 
-    tests_html = "\n".join(_render_test(test, test_class) for test in tests)
+    tests_html = "\n".join(_render_test(t, status_class) for t in tests)
     return f"""
         <div class="section">
-            <div class="section-title">{title}</div>
-            {tests_html}
+            <div class="section-header">
+                <h2>{title}</h2>
+                <span class="section-count">{len(tests)}</span>
+            </div>
+            <div class="test-list">
+                {tests_html}
+            </div>
         </div>"""
 
 
-def _render_test(test, test_class: str) -> str:
-    """Render a single test item."""
-    status_icon = "❌" if test_class == "failed" else "✅"
-    score_badge_class = "fail" if test_class == "failed" else "pass"
+def _render_test(test, status_class: str) -> str:
+    score_class = status_class
+    expected = set(test.expected_tool_calls) if test.expected_tool_calls else set()
+    actual = set(test.actual_tool_calls) if test.actual_tool_calls else set()
+
+    expected_tags = _render_tool_tags(
+        test.expected_tool_calls or [], actual, mode="expected"
+    )
+    actual_tags = _render_tool_tags(
+        test.actual_tool_calls or [], expected, mode="actual"
+    )
 
     return f"""
-            <div class="test-item {test_class}">
-                <div class="test-header">
-                    <div class="test-header-left">
-                        <div class="test-status">{status_icon}</div>
-                        <div class="test-info">
-                            <div class="test-id">{test.test_id}</div>
-                            <div class="test-intent">{test.intent_name}</div>
+                <div class="test-row">
+                    <div class="test-row-header">
+                        <div class="status-dot {status_class}"></div>
+                        <div class="test-name">{_escape_html(test.test_id)}</div>
+                        <span class="test-intent-tag">{_escape_html(test.intent_name)}</span>
+                        <span class="score-pill {score_class}">{test.score}/10</span>
+                        <span class="chevron">&#x203A;</span>
+                    </div>
+                    <div class="test-detail">
+                        <div class="detail-grid">
+                            <div class="detail-block">
+                                <div class="detail-block-label">Input Message</div>
+                                <div class="detail-block-content">{_escape_html(test.input_message)}</div>
+                            </div>
+                            <div class="tool-calls-row">
+                                <div class="detail-block">
+                                    <div class="detail-block-label">Input Context</div>
+                                    <pre class="detail-block-content">{_escape_html(json.dumps(test.input_context, indent=2))}</pre>
+                                </div>
+                                <div class="detail-block">
+                                    <div class="detail-block-label">Backend State</div>
+                                    <pre class="detail-block-content">{_escape_html(json.dumps(test.backend_state, indent=2))}</pre>
+                                </div>
+                            </div>
+                            <div class="detail-block">
+                                <div class="detail-block-label">Reasoning</div>
+                                <div class="detail-block-content">{_escape_html(test.reasoning)}</div>
+                            </div>
+                            <div class="tool-calls-row">
+                                <div class="detail-block">
+                                    <div class="detail-block-label">Expected Tools</div>
+                                    <div class="detail-block-content">{expected_tags if expected_tags else '<span style="color: var(--text-tertiary)">none</span>'}</div>
+                                </div>
+                                <div class="detail-block">
+                                    <div class="detail-block-label">Actual Tools</div>
+                                    <div class="detail-block-content">{actual_tags if actual_tags else '<span style="color: var(--text-tertiary)">none</span>'}</div>
+                                </div>
+                            </div>
+                            <div class="detail-block">
+                                <div class="detail-block-label">Agent Output</div>
+                                <pre class="detail-block-content">{_escape_html(test.output)}</pre>
+                            </div>
                         </div>
                     </div>
-                    <div class="test-score">
-                        <span class="score-badge {score_badge_class}">{test.score}/10</span>
-                    </div>
-                    <div class="test-toggle">›</div>
-                </div>
-                <div class="test-details">
-                    <div class="detail-section">
-                        <div class="detail-label">Reasoning</div>
-                        <div class="detail-content">{_escape_html(test.reasoning)}</div>
-                    </div>
-                    <div class="detail-section">
-                        <div class="detail-label">Agent Output</div>
-                        <div class="detail-content">{_escape_html(test.output)}</div>
-                    </div>
-                </div>
-            </div>"""
+                </div>"""
+
+
+def _render_tool_tags(tools: list[str], comparison_set: set, mode: str) -> str:
+    """Render tool name tags with color coding.
+
+    For expected tools: green if in actual (match), red if not (missing).
+    For actual tools: green if in expected (match), blue if not (extra).
+    """
+    tags = []
+    for tool in tools:
+        if tool in comparison_set:
+            cls = "match"
+        elif mode == "expected":
+            cls = "missing"
+        else:
+            cls = "extra"
+        tags.append(f'<span class="tool-tag {cls}">{_escape_html(tool)}</span>')
+    return "".join(tags)
 
 
 def _render_empty_state(total: int) -> str:
-    """Render empty state if no tests."""
     if total == 0:
-        return """
-        <div class="section">
-            <div class="empty-state">
-                <p>No tests to display</p>
-            </div>
-        </div>"""
+        return '<div class="empty-state">No tests to display</div>'
     return ""
 
 
 def _escape_html(text: str) -> str:
-    """Escape HTML special characters."""
     return (
         text.replace("&", "&amp;")
         .replace("<", "&lt;")

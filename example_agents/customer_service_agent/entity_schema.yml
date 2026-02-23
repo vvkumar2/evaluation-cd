@@ -1,3 +1,16 @@
+external_tools:
+  - name: slack_post_message
+    description: "Post a message to a Slack channel"
+    parameters:
+      channel_id:
+        type: string
+        description: "The Slack channel ID to post to"
+        required: true
+      text:
+        type: string
+        description: "The message text to post"
+        required: true
+
 entities:
   - name: order
     description: "Customer order information"

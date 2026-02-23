@@ -65,6 +65,11 @@ class TestCaseGenerator:
             rule_description=rule.description,
             conditions=conditions_text,
             expected_behavior=rule.expected_behavior,
+            expected_tool_calls=(
+                ", ".join(rule.expected_tool_calls)
+                if rule.expected_tool_calls
+                else "none specified"
+            ),
             entities_schema=entities_schema_text,
         )
 
@@ -88,6 +93,7 @@ class TestCaseGenerator:
             backend_state=backend_state,
             input=TestInput(**test_case_dict["input"]),
             expected_behavior=rule.expected_behavior,
+            expected_tool_calls=rule.expected_tool_calls,
             category=test_case_dict.get("category", "happy_path"),
         )
 

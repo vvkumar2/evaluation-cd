@@ -15,6 +15,7 @@ from .schemas import (
     StructuredSystemPromptExtraction,
     ToolCodeRuleList,
 )
+from ..config import AGENT_TOOLS_FILE
 
 
 class AgentTestSpaceExtractor:
@@ -36,14 +37,17 @@ class AgentTestSpaceExtractor:
     ) -> dict:
         tools = self.step1_parse_tools(tools_schema)
         entities = self.step2_parse_entities(entity_schema)
+        external_tool_names = [
+            t["name"] for t in entity_schema.get("external_tools", [])
+        ]
         tools, code_rules, entities = self.step3_enrich_tools_and_entities(
-            tools, entities, system_prompt, Path(agent_dir) / "tools.py"
+            tools, entities, system_prompt, Path(agent_dir) / AGENT_TOOLS_FILE
         )
         prompt_extraction = self.step4_parse_system_prompt(
             tools, code_rules, system_prompt
         )
         structured_prompt_extraction = self.step5_structure_rules(
-            tools, entities, prompt_extraction
+            tools, entities, prompt_extraction, external_tool_names
         )
         validation_result = self.step6_validate(
             tools, entities, structured_prompt_extraction
@@ -85,12 +89,13 @@ class AgentTestSpaceExtractor:
         tools: EnrichedToolSchemaList,
         entities: EnrichedEntitySchemaList,
         prompt_extraction: SystemPromptExtraction,
+        external_tool_names: list[str],
     ) -> StructuredSystemPromptExtraction:
         """Convert natural language rules to structured rules with explicit conditions."""
         structured_intents = []
         for intent in prompt_extraction.intents:
             structured_intent = self.rule_enricher.enrich_intent_rules(
-                tools, entities, intent
+                tools, entities, intent, external_tool_names
             )
             structured_intents.append(structured_intent)
 

@@ -32,6 +32,9 @@ class GeneratedTestCase(BaseModel):
     expected_behavior: str = Field(
         description="Expected behavior copied from extraction"
     )
+    expected_tool_calls: list[str] = Field(
+        description="Tool names the agent must call for this test case"
+    )
 
     # Test data
     backend_state: dict[str, list[dict]] = Field(

@@ -16,6 +16,8 @@ Rule Conditions (structured):
 
 Expected Behavior: {expected_behavior}
 
+Expected Tool Calls: {expected_tool_calls}
+
 ## Entity Schema (available entities and fields)
 
 {entities_schema}

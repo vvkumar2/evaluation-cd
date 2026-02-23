@@ -10,14 +10,20 @@ BEHAVIOR_EVALUATION_PROMPT = """You are evaluating whether an agent's response m
 ## Actual Output from Agent
 {actual_output}
 
+## Expected Tool Calls
+{expected_tool_calls}
+
+## Actual Tool Calls
+{actual_tool_calls}
+
 ## Task
-Score this response on how well it matches the expected behavior.
+Score this response on how well it matches the expected behavior AND whether the correct tools were called.
 
 Scoring Guide:
-- 10: Perfect match - agent did exactly what was expected
-- 7-9: Good - meets core requirements with minor issues
-- 4-6: Partial - missing key aspects but shows understanding
-- 1-3: Poor - doesn't match expected behavior
+- 10: Perfect match - agent did exactly what was expected and called all expected tools
+- 7-9: Good - meets core requirements with minor issues, called most expected tools
+- 4-6: Partial - missing key aspects or missing important tool calls
+- 1-3: Poor - doesn't match expected behavior or critical tools were not called
 
 Return a JSON object:
 {{
@@ -39,13 +45,21 @@ class BehaviorEvaluator:
         """
         self.client = llm_client
 
-    def evaluate(self, actual_output: str, expected_behavior: str) -> tuple[int, str]:
+    def evaluate(
+        self,
+        actual_output: str,
+        expected_behavior: str,
+        expected_tool_calls: list[str] = None,
+        actual_tool_calls: list[str] = None,
+    ) -> tuple[int, str]:
         """
-        Score agent output based on expected behavior.
+        Score agent output based on expected behavior and tool calls.
 
         Args:
             actual_output: The agent's actual response
             expected_behavior: What the agent should have done
+            expected_tool_calls: Tool names the agent should have called
+            actual_tool_calls: Tool names the agent actually called
 
         Returns:
             Tuple of (score, reasoning) where score is 1-10
@@ -56,6 +70,14 @@ class BehaviorEvaluator:
         prompt = BEHAVIOR_EVALUATION_PROMPT.format(
             expected_behavior=expected_behavior,
             actual_output=actual_output,
+            expected_tool_calls=(
+                ", ".join(expected_tool_calls)
+                if expected_tool_calls
+                else "none specified"
+            ),
+            actual_tool_calls=(
+                ", ".join(actual_tool_calls) if actual_tool_calls else "none"
+            ),
         )
 
         response = self._call_llm(prompt)
