@@ -24,6 +24,7 @@ class TestCaseGenerator:
         agent_name: str,
         extraction: StructuredSystemPromptExtraction,
         entities: EntitySchemaList,
+        external_tools: list[dict] | None = None,
     ) -> GeneratedTestSuite:
         """Generate complete test suite from extracted specifications."""
         if not self.client:
@@ -41,6 +42,13 @@ class TestCaseGenerator:
                 )
                 if test_case:
                     test_cases.append(test_case)
+
+        # Generate tool failure variants for each external tool
+        if external_tools:
+            failure_tests = self._generate_tool_failure_tests(
+                test_cases, external_tools
+            )
+            test_cases.extend(failure_tests)
 
         return GeneratedTestSuite(agent_name=agent_name, test_cases=test_cases)
 
@@ -176,3 +184,55 @@ class TestCaseGenerator:
                             instance[field.name] = field.default
 
         return backend_state
+
+    def _generate_tool_failure_tests(
+        self,
+        test_cases: list[GeneratedTestCase],
+        external_tools: list[dict],
+    ) -> list[GeneratedTestCase]:
+        """Generate tool failure variants by duplicating existing tests.
+
+        For each external tool, finds the first test that expects to call it,
+        duplicates it with mock_tool_responses set to return an error, and
+        adjusts the expected behavior.
+        """
+        failure_tests = []
+
+        for tool_def in external_tools:
+            tool_name = tool_def["name"]
+
+            # Find first test that expects this tool
+            source_test = None
+            for tc in test_cases:
+                if tool_name in (tc.expected_tool_calls or []):
+                    source_test = tc
+                    break
+
+            if not source_test:
+                continue
+
+            # Duplicate with error override
+            failure_test = source_test.model_copy(
+                update={
+                    "test_id": f"{source_test.test_id}_{tool_name}_failure",
+                    "description": (
+                        f"Validates agent handles {tool_name} failure gracefully. "
+                        f"Based on: {source_test.description}"
+                    ),
+                    "category": "error_handling",
+                    "expected_behavior": (
+                        f"The agent should still process the primary action but handle "
+                        f"the {tool_name} failure gracefully — informing the customer "
+                        f"that the notification or side-effect could not be completed."
+                    ),
+                    "mock_tool_responses": {
+                        tool_name: {
+                            "response": f"{tool_name} service unavailable",
+                            "is_error": True,
+                        }
+                    },
+                }
+            )
+            failure_tests.append(failure_test)
+
+        return failure_tests

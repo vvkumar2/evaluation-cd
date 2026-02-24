@@ -44,6 +44,13 @@ class GeneratedTestCase(BaseModel):
     # Agent input
     input: TestInput = Field(description="Message and context for agent")
 
+    # Mock tool overrides (optional, for simulating tool failures)
+    mock_tool_responses: Optional[dict[str, dict]] = Field(
+        default=None,
+        description="Per-test tool response overrides. Keys are tool names, values are "
+        '{"response": str, "is_error": bool}. Overrides default mock_response from entity_schema.',
+    )
+
     # Test classification
     category: str = Field(
         description="Test category: happy_path, edge_case, boundary, invalid_input, error_handling"

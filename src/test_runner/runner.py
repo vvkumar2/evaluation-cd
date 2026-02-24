@@ -57,8 +57,9 @@ class TestRunner:
         }
 
         # Initialize agent executor and load tools once
+        external_tools = entity_data.get("external_tools", [])
         executor = AgentExecutor(agent_dir)
-        await executor.setup_tools()
+        await executor.setup_tools(external_tools=external_tools)
 
         start = time.monotonic()
         try:

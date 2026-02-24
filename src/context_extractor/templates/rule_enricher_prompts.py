@@ -79,7 +79,7 @@ Convert ONLY these rules into structured format. For each rule, include:
 - **description**: When this rule applies
 - **conditions**: List of conditions that must be true
 - **outcome**: The outcome this rule leads to
-- **expected_behavior**: Core facts/outcome agent must communicate (concise, objective)
+- **expected_behavior**: Only core, objective outcomes the agent must communicate, not suggestions
 - **expected_tool_calls**: List of external/MCP tool names the agent must call when this rule matches. ONLY use tool names from the "External tools (MCP)" list above. Use an empty list if no external tools are needed.
 
 Output valid JSON:
@@ -92,7 +92,7 @@ Output valid JSON:
         {{"field": "entity.field", "operator": "op", "value": "val"}}
       ],
       "outcome": "outcome_name",
-      "expected_behavior": "what the agent should do when this rule matches",
+      "expected_behavior": "objective outcomes the agent must communicate",
       "expected_tool_calls": ["tool_name_1", "tool_name_2"]
     }}
   ]

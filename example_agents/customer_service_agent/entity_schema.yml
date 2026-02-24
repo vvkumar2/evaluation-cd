@@ -1,6 +1,7 @@
 external_tools:
   - name: slack_post_message
     description: "Post a message to a Slack channel"
+    mock_response: "Message posted successfully"
     parameters:
       channel_id:
         type: string

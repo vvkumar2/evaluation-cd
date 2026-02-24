@@ -307,6 +307,57 @@ def _generate_html(report: TestRunReport, failed_tests, passed_tests) -> str:
             overflow-y: auto;
         }}
 
+        /* Collapsible detail sections */
+        .detail-disclosure {{
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }}
+        .detail-disclosure summary {{
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-tertiary);
+            padding: 8px 12px;
+            cursor: pointer;
+            user-select: none;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }}
+        .detail-disclosure summary::-webkit-details-marker {{
+            display: none;
+        }}
+        .detail-disclosure summary::before {{
+            content: "\\203A";
+            font-size: 14px;
+            transition: transform 0.15s ease;
+            display: inline-block;
+            width: 12px;
+            text-align: center;
+            transform-origin: center center;
+        }}
+        .detail-disclosure[open] summary::before {{
+            transform: rotate(90deg);
+        }}
+        .detail-disclosure summary:hover {{
+            background: var(--bg);
+        }}
+        .detail-disclosure .disclosure-body {{
+            border-top: 1px solid var(--border);
+        }}
+        .disclosure-grid {{
+            display: grid;
+            gap: 12px;
+            padding: 12px;
+        }}
+        .disclosure-grid .detail-block-content {{
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }}
+
         /* Tool calls comparison */
         .tool-calls-row {{
             display: grid;
@@ -454,37 +505,45 @@ def _render_test(test, status_class: str) -> str:
                     <div class="test-detail">
                         <div class="detail-grid">
                             <div class="detail-block">
-                                <div class="detail-block-label">Input Message</div>
-                                <div class="detail-block-content">{_escape_html(test.input_message)}</div>
-                            </div>
-                            <div class="tool-calls-row">
-                                <div class="detail-block">
-                                    <div class="detail-block-label">Input Context</div>
-                                    <pre class="detail-block-content">{_escape_html(json.dumps(test.input_context, indent=2))}</pre>
-                                </div>
-                                <div class="detail-block">
-                                    <div class="detail-block-label">Backend State</div>
-                                    <pre class="detail-block-content">{_escape_html(json.dumps(test.backend_state, indent=2))}</pre>
-                                </div>
-                            </div>
-                            <div class="detail-block">
                                 <div class="detail-block-label">Reasoning</div>
                                 <div class="detail-block-content">{_escape_html(test.reasoning)}</div>
                             </div>
-                            <div class="tool-calls-row">
-                                <div class="detail-block">
-                                    <div class="detail-block-label">Expected Tools</div>
-                                    <div class="detail-block-content">{expected_tags if expected_tags else '<span style="color: var(--text-tertiary)">none</span>'}</div>
+                            <details class="detail-disclosure">
+                                <summary>Agent Input</summary>
+                                <div class="disclosure-body disclosure-grid">
+                                    <div class="detail-block">
+                                        <div class="detail-block-label">Message</div>
+                                        <div class="detail-block-content">{_escape_html(test.input_message)}</div>
+                                    </div>
+                                    <div class="detail-block">
+                                        <div class="detail-block-label">Context</div>
+                                        <pre class="detail-block-content">{_escape_html(json.dumps(test.input_context, indent=2))}</pre>
+                                    </div>
+                                    <div class="detail-block">
+                                        <div class="detail-block-label">Backend State</div>
+                                        <pre class="detail-block-content">{_escape_html(json.dumps(test.backend_state, indent=2))}</pre>
+                                    </div>
                                 </div>
-                                <div class="detail-block">
-                                    <div class="detail-block-label">Actual Tools</div>
-                                    <div class="detail-block-content">{actual_tags if actual_tags else '<span style="color: var(--text-tertiary)">none</span>'}</div>
+                            </details>
+                            <details class="detail-disclosure">
+                                <summary>Agent Output</summary>
+                                <div class="disclosure-body disclosure-grid">
+                                    <div class="tool-calls-row">
+                                        <div class="detail-block">
+                                            <div class="detail-block-label">Expected Tools</div>
+                                            <div class="detail-block-content">{expected_tags if expected_tags else '<span style="color: var(--text-tertiary)">none</span>'}</div>
+                                        </div>
+                                        <div class="detail-block">
+                                            <div class="detail-block-label">Actual Tools</div>
+                                            <div class="detail-block-content">{actual_tags if actual_tags else '<span style="color: var(--text-tertiary)">none</span>'}</div>
+                                        </div>
+                                    </div>
+                                    <div class="detail-block">
+                                        <div class="detail-block-label">Response</div>
+                                        <pre class="detail-block-content">{_escape_html(test.output)}</pre>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="detail-block">
-                                <div class="detail-block-label">Agent Output</div>
-                                <pre class="detail-block-content">{_escape_html(test.output)}</pre>
-                            </div>
+                            </details>
                         </div>
                     </div>
                 </div>"""

@@ -51,9 +51,11 @@ def run_pipeline(agent_dir):
         # Generate
         entity_schema_path = agent_path / AGENT_ENTITY_SCHEMA_FILE
         with open(entity_schema_path) as f:
-            entity_schema_data = parse_entity_schema(yaml.safe_load(f))
+            entity_schema_raw = yaml.safe_load(f)
+        entity_schema_data = parse_entity_schema(entity_schema_raw)
+        external_tools = entity_schema_raw.get("external_tools", [])
         generation_file, _ = _run_generation_stage(
-            agent_name, output_dict, entity_schema_data, client
+            agent_name, output_dict, entity_schema_data, client, external_tools
         )
 
         # Run
@@ -118,10 +120,14 @@ def generate_tests(extraction_file, entity_schema):
             extraction_data = yaml.safe_load(f)
 
         with open(entity_schema_path) as f:
-            entity_schema_obj = parse_entity_schema(yaml.safe_load(f))
+            entity_schema_raw = yaml.safe_load(f)
+        entity_schema_obj = parse_entity_schema(entity_schema_raw)
+        external_tools = entity_schema_raw.get("external_tools", [])
 
         agent_name = extraction_data.get("agent_name", extraction_path.stem)
-        _run_generation_stage(agent_name, extraction_data, entity_schema_obj, client)
+        _run_generation_stage(
+            agent_name, extraction_data, entity_schema_obj, client, external_tools
+        )
     except Exception as e:
         console.print(f"\n[red]Test generation failed:[/red] {e}")
         traceback.print_exc()
@@ -205,7 +211,11 @@ def _run_extraction_stage(
 
 
 def _run_generation_stage(
-    agent_name: str, output_dict: dict, entity_schema_data: object, client
+    agent_name: str,
+    output_dict: dict,
+    entity_schema_data: object,
+    client,
+    external_tools: list[dict] | None = None,
 ) -> tuple[Path, object]:
     """Run test generation stage and return generation file path and test suite."""
     generation_file = Path("tests/generation") / f"{agent_name}_extraction_tests.yml"
@@ -217,6 +227,7 @@ def _run_generation_stage(
             agent_name=extraction.agent_name,
             extraction=extraction,
             entities=entity_schema_data,
+            external_tools=external_tools,
         )
     generation_file.parent.mkdir(parents=True, exist_ok=True)
     with open(generation_file, "w") as f:

@@ -15,6 +15,7 @@ import json
 import subprocess
 import sys
 import os
+import logging
 from contextlib import AsyncExitStack
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
@@ -25,6 +26,16 @@ from langchain_mcp_adapters.tools import load_mcp_tools
 from tools import get_tools
 
 load_dotenv()
+
+# Configure logging for agent visibility (only when AGENT_DEBUG=true)
+logger = logging.getLogger(__name__)
+if os.getenv("AGENT_DEBUG", "false").lower() == "true":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s [agent] %(message)s",
+    )
+else:
+    logging.disable(logging.CRITICAL)
 
 
 # System prompt that guides the agent's behavior
@@ -177,33 +188,52 @@ async def _run_agent_loop(
     ]
 
     max_iterations = 10
-    for _ in range(max_iterations):
+    for iteration in range(max_iterations):
+        logger.info("--- Iteration %d/%d ---", iteration + 1, max_iterations)
         response = await llm_with_tools.ainvoke(messages)
 
         if not response.tool_calls:
             text = response.content if hasattr(response, "content") else str(response)
+            logger.info("Agent finished. Response: %s", text[:200])
             return text, called_tools
 
+        logger.info("Agent chose %d tool(s)", len(response.tool_calls))
         messages.append(response)
 
         for tool_call in response.tool_calls:
-            called_tools.append(tool_call["name"])
-            tool_result = await _execute_tool(tool_call, tool_map)
-            messages.append(
-                ToolMessage(content=tool_result, tool_call_id=tool_call["id"])
-            )
+            tool_name = tool_call["name"]
+            tool_args = tool_call["args"]
+            called_tools.append(tool_name)
 
+            logger.info("  Calling %s(%s)", tool_name, json.dumps(tool_args))
+
+            try:
+                tool_result = await _execute_tool(tool_call, tool_map)
+                logger.info("  Result: %s", tool_result[:200])
+                messages.append(
+                    ToolMessage(content=tool_result, tool_call_id=tool_call["id"])
+                )
+            except Exception as e:
+                error_msg = f"Error: {str(e)}"
+                logger.error("  %s", error_msg)
+                messages.append(
+                    ToolMessage(content=error_msg, tool_call_id=tool_call["id"])
+                )
+
+    logger.warning("Max iterations reached - returning timeout response")
     return (
         "I apologize, but I took too long to process your request. Please try again.",
         called_tools,
     )
 
 
-async def load_all_tools() -> list:
+async def load_all_tools(tool_interceptors=None) -> tuple[list, AsyncExitStack]:
     """Load all tools including MCP tools. Opens a new MCP session.
 
-    Returns a tuple of (tools, cleanup_coro) where cleanup_coro should be
-    awaited when done to close the MCP session.
+    Args:
+        tool_interceptors: Optional list of interceptors for MCP tool calls.
+
+    Returns a tuple of (tools, stack) where stack should be closed when done.
     """
     tools = get_tools()
     server_params = _get_slack_server_params()
@@ -214,7 +244,7 @@ async def load_all_tools() -> list:
     )
     session = await stack.enter_async_context(ClientSession(read, write))
     await session.initialize()
-    slack_tools = await load_mcp_tools(session)
+    slack_tools = await load_mcp_tools(session, tool_interceptors=tool_interceptors)
 
     return tools + slack_tools, stack
 

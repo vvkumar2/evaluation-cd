@@ -16,14 +16,15 @@ BEHAVIOR_EVALUATION_PROMPT = """You are evaluating whether an agent's response m
 ## Actual Tool Calls
 {actual_tool_calls}
 
-## Task
-Score this response on how well it matches the expected behavior AND whether the correct tools were called.
+## Scoring Guide
+- 10: Perfect - exactly matches expected behavior and called correct tools
+- 8-9: Very Good - meets core requirements with minor deviations acceptable
+- 7: Good - addresses the main need, reasonable approach
+- 4-6: Needs Work - missing key aspects or wrong approach
+- 1-3: Poor - fundamentally doesn't address the expected behavior
 
-Scoring Guide:
-- 10: Perfect match - agent did exactly what was expected and called all expected tools
-- 7-9: Good - meets core requirements with minor issues, called most expected tools
-- 4-6: Partial - missing key aspects or missing important tool calls
-- 1-3: Poor - doesn't match expected behavior or critical tools were not called
+## Task
+Score this response on how well it addresses the expected behavior.
 
 Return a JSON object:
 {{

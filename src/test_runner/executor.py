@@ -13,6 +13,7 @@ from ..config import (
     AGENT_HANDLE_MESSAGE_FUNC,
     AGENT_DB_ENGINE_ATTR,
 )
+from .mock_interceptor import MockToolInterceptor
 
 
 class AgentExecutor:
@@ -28,6 +29,7 @@ class AgentExecutor:
         self.agent_dir = Path(agent_dir)
         self._tools = None
         self._mcp_stack = None
+        self._interceptor = None
         self._import_agent()
 
     def _import_agent(self):
@@ -61,12 +63,26 @@ class AgentExecutor:
                 f"Failed to import agent from {self.agent_dir}: {e}"
             ) from e
 
-    async def setup_tools(self):
-        """Load all tools (including MCP) once. Must be called before execute_test."""
+    async def setup_tools(self, external_tools: list[dict] = None):
+        """Load all tools (including MCP) once. Must be called before execute_test.
+
+        Args:
+            external_tools: External tool definitions from entity_schema.yml.
+                Used to build mock responses so real APIs are not called.
+        """
         load_all_tools = getattr(self.agent_module, "load_all_tools", None)
         if not load_all_tools:
             raise RuntimeError("Agent module does not export load_all_tools()")
-        self._tools, self._mcp_stack = await load_all_tools()
+
+        mock_responses = {}
+        if external_tools:
+            for tool_def in external_tools:
+                mock_responses[tool_def["name"]] = tool_def.get("mock_response", "OK")
+
+        self._interceptor = MockToolInterceptor(mock_responses)
+        self._tools, self._mcp_stack = await load_all_tools(
+            tool_interceptors=[self._interceptor]
+        )
 
     async def cleanup_tools(self):
         """Close MCP session if one was opened."""
@@ -85,6 +101,8 @@ class AgentExecutor:
             Tuple of (agent response text, list of tool names called)
         """
         self._setup_backend(test_case.backend_state)
+        if self._interceptor:
+            self._interceptor.set_overrides(test_case.mock_tool_responses)
 
         try:
             result = self._handle_message(
@@ -99,18 +117,24 @@ class AgentExecutor:
         except Exception as e:
             raise RuntimeError(f"Agent execution failed: {e}") from e
         finally:
+            if self._interceptor:
+                self._interceptor.set_overrides(None)
             self._cleanup_backend()
 
     def _setup_backend(self, backend_state: dict[str, list[dict]]):
         """Seed the test SQLite database with test-specific data."""
         customers = backend_state.get("customers", [])
         orders = backend_state.get("orders", [])
+        print(
+            f"Setting up backend with {len(customers)} customers and {len(orders)} orders"
+        )
 
         with self._db_engine.connect() as conn:
             conn.execute(text("DELETE FROM orders"))
             conn.execute(text("DELETE FROM customers"))
 
             if customers:
+                print(f"Inserting {len(customers)} customers")
                 conn.execute(
                     text(
                         "INSERT INTO customers (id, name, tier, email) "
@@ -120,6 +144,7 @@ class AgentExecutor:
                 )
 
             if orders:
+                print(f"Inserting {len(orders)} orders")
                 conn.execute(
                     text(
                         "INSERT INTO orders "

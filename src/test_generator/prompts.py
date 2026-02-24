@@ -52,10 +52,10 @@ Return a JSON object matching this exact schema:
 ```
 
 Rules for backend_state:
-- Use entity names as keys (e.g., "orders", "customers")
+- Use entity names as keys exactly as they appear in the entity schema (e.g., "customers")
 - Value is a list of entity instances
 - Each instance is a dict with field names as keys
-- Satisfy ALL conditions in the rule conditions list
+- CRITICAL: Use the EXACT values from the rule conditions list
 - Fill unused fields with sensible defaults
 - Use realistic IDs (e.g., "ORD-001", "CUST-100")
 
