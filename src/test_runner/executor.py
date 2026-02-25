@@ -125,16 +125,12 @@ class AgentExecutor:
         """Seed the test SQLite database with test-specific data."""
         customers = backend_state.get("customers", [])
         orders = backend_state.get("orders", [])
-        print(
-            f"Setting up backend with {len(customers)} customers and {len(orders)} orders"
-        )
 
         with self._db_engine.connect() as conn:
             conn.execute(text("DELETE FROM orders"))
             conn.execute(text("DELETE FROM customers"))
 
             if customers:
-                print(f"Inserting {len(customers)} customers")
                 conn.execute(
                     text(
                         "INSERT INTO customers (id, name, tier, email) "
@@ -144,7 +140,6 @@ class AgentExecutor:
                 )
 
             if orders:
-                print(f"Inserting {len(orders)} orders")
                 conn.execute(
                     text(
                         "INSERT INTO orders "

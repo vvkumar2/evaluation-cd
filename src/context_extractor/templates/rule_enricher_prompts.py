@@ -13,25 +13,10 @@ RULES_STRUCTURING_PROMPT = """Convert natural language rules to structured JSON 
 eq, ne, lt, lte, gt, gte, in, not_in, exists, missing
 
 ## FIELD NAMING
-- Entity fields: `entity.field` (e.g., `order.status`)
-- Slot fields: just the name (e.g., `is_damaged`)
+- Entity fields must be in the format `entity.entity_field` (e.g., `order.status`, `customer.tier`)
+- Slot fields must be in the format `slot_name` (e.g., `is_damaged`)
 
-## EXAMPLE
-Intent: process_refund
-Entities:
-- customer.tier enum: [standard, gold, platinum]
-- order.price (number)
-- order.delivered_date_days_ago (integer)
-Thresholds: standard_window=30, gold_window=60, platinum_window=90, auto_approve=200, manager_limit=1000
-Slots: is_damaged (boolean)
-Outcomes: [APPROVED, DENIED, PENDING_REVIEW]
-
-Rules:
-- "Damaged items always get refund"
-- "Must be within refund window (varies by tier)"
-- "Under $200 auto-approved, $200-$1000 manager review, over $1000 executive review"
-
-Output:
+## EXAMPLE OUTPUT
 ```json
 {{
   "rules": [
@@ -52,7 +37,6 @@ Key patterns demonstrated:
 - Slot conditions included to prevent overlap
 
 ## YOUR TASK
-
 Intent: {intent_name}
 Description: {intent_description}
 
@@ -89,7 +73,7 @@ Output valid JSON:
       "id": "rule_id",
       "description": "when this rule applies",
       "conditions": [
-        {{"field": "entity.field", "operator": "op", "value": "val"}}
+        {{"field": "entity.entity_field", "operator": "op", "value": "val"}}
       ],
       "outcome": "outcome_name",
       "expected_behavior": "objective outcomes the agent must communicate",

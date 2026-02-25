@@ -1,10 +1,13 @@
 """Generate test cases from extracted agent specifications using LLM."""
 
 import json
+import logging
 from ..context_extractor.schemas.prompt_schema import StructuredSystemPromptExtraction
 from ..context_extractor.schemas.entity_schema import EntitySchemaList
 from .schemas import GeneratedTestCase, GeneratedTestSuite, TestInput
 from .prompts import TEST_CASE_GENERATION_PROMPT
+
+logger = logging.getLogger(__name__)
 
 
 class TestCaseGenerator:
@@ -87,10 +90,11 @@ class TestCaseGenerator:
         # Parse response
         test_case_dict = self._parse_test_case_response(response)
 
-        # Fill in missing fields with defaults from entity schema
-        backend_state = self._fill_missing_fields(
-            test_case_dict["backend_state"], entities
-        )
+        # Validate and fix backend state
+        backend_state, valid = self._validate_and_fix_backend_state(test_case_dict["backend_state"], entities)
+
+        if not valid:
+            return None
 
         # Convert to GeneratedTestCase
         return GeneratedTestCase(
@@ -161,29 +165,87 @@ class TestCaseGenerator:
                 f"Failed to parse test case response: {e}\n{response}"
             ) from e
 
-    def _fill_missing_fields(
-        self, backend_state: dict[str, list[dict]], entities: EntitySchemaList
-    ) -> dict[str, list[dict]]:
-        """Fill in missing entity fields with defaults from entity schema."""
-        entity_map = {e.name: e for e in entities.entities}
+    def _validate_and_fix_backend_state(
+        self,
+        backend_state: dict[str, list[dict]],
+        entities: EntitySchemaList,
+    ) -> tuple[dict[str, list[dict]], bool]:
+        """Normalize keys, fill missing fields, and verify conditions are satisfied.
 
-        for entity_name, instances in backend_state.items():
-            if entity_name not in entity_map:
-                continue
+        Returns:
+            Tuple of (fixed_backend_state, is_valid).
+        """
+        # Build key mapping: entity name "order" -> backend key "orders"
+        # Accept both "order" and "orders" as input keys
+        entity_by_key = {}
+        backend_key_for = {}
+        for e in entities.entities:
+            plural = e.name + "s"
+            entity_by_key[e.name] = e
+            entity_by_key[plural] = e
+            backend_key_for[e.name] = plural
+            backend_key_for[plural] = plural
 
-            entity = entity_map[entity_name]
+        # Normalize keys to plural form
+        fixed_state = {}
+        for key, instances in backend_state.items():
+            if key not in entity_by_key:
+                logger.warning(
+                    "backend_state key '%s' does not match any entity",
+                    key,
+                )
+                return fixed_state, False
+            fixed_state[backend_key_for[key]] = instances
+
+        # Fill missing fields with defaults
+        for key, instances in fixed_state.items():
+            entity = entity_by_key.get(key)
+            if not entity or not entity.fields:
+                logger.warning(
+                    "no entity or fields for key '%s'",
+                    key,
+                )
+                return fixed_state, False
             for instance in instances:
-                # Fill in missing fields using defaults from schema
-                if entity.fields:
-                    for field in entity.fields:
-                        if (
-                            field.name not in instance
-                            and hasattr(field, "default")
-                            and field.default is not None
-                        ):
-                            instance[field.name] = field.default
+                for field in entity.fields:
+                    if (
+                        field.name not in instance
+                        and hasattr(field, "default")
+                        and field.default is not None
+                    ):
+                        instance[field.name] = field.default
 
-        return backend_state
+        # TODO: We need a better way to verify rule conditions are satisfied
+        # for condition in conditions:
+        # ...
+
+        return fixed_state, True
+
+    @staticmethod
+    def _check_condition(actual, operator: str, expected) -> bool:
+        """Check if a single value satisfies a condition operator."""
+        if actual is None:
+            return operator == "missing"
+
+        ops = {
+            "eq": lambda a, e: a == e,
+            "ne": lambda a, e: a != e,
+            "lt": lambda a, e: a < e,
+            "lte": lambda a, e: a <= e,
+            "gt": lambda a, e: a > e,
+            "gte": lambda a, e: a >= e,
+            "in": lambda a, e: a in e if isinstance(e, list) else a == e,
+            "not_in": lambda a, e: a not in e if isinstance(e, list) else a != e,
+            "exists": lambda a, e: a is not None,
+            "missing": lambda a, e: a is None,
+        }
+        check = ops.get(operator)
+        if not check:
+            return True
+        try:
+            return check(actual, expected)
+        except (TypeError, ValueError):
+            return False
 
     def _generate_tool_failure_tests(
         self,
