@@ -52,7 +52,7 @@ Return a JSON object matching this exact schema:
 ```
 
 Rules for backend_state:
-- Use entity names as keys exactly as they appear in the entity schema (e.g., "customers")
+- Use pluralized entity names as keys (e.g., "customers", "orders")
 - Value is a list of entity instances
 - Each instance is a dict with field names as keys
 - CRITICAL: Use the EXACT values from the rule conditions list
