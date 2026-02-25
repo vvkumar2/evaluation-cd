@@ -1,10 +1,33 @@
+import importlib.util
 import re
 import sys
-from importlib import import_module
 from pathlib import Path
 import yaml
 
 from ..config import cfg
+
+
+def _load_module_from_file(file_path: Path, module_name: str):
+    """Load a Python module directly from a file path.
+
+    Temporarily adds the module's parent directory to sys.path so that
+    sibling imports inside the agent code work (e.g. ``from tools import …``).
+    """
+    parent = str(file_path.parent)
+    added = parent not in sys.path
+    if added:
+        sys.path.insert(0, parent)
+    try:
+        spec = importlib.util.spec_from_file_location(module_name, file_path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Cannot create module spec for {file_path}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        if added and parent in sys.path:
+            sys.path.remove(parent)
 
 
 class AgentLoader:
@@ -23,11 +46,8 @@ class AgentLoader:
 
         tools_module_name = cfg.AGENT_TOOLS_FILE.removesuffix(".py")
 
-        sys.path.insert(0, str(self.agent_dir))
-        sys.path.insert(0, str(self.agent_dir.parent))
-
         try:
-            module = import_module(f"{self.agent_dir.name}.{tools_module_name}")
+            module = _load_module_from_file(tools_file, tools_module_name)
             get_tools_fn = getattr(module, cfg.AGENT_GET_TOOLS_FUNC)
             tools = get_tools_fn()
 
@@ -81,11 +101,6 @@ class AgentLoader:
 
         except Exception as e:
             raise RuntimeError(f"Failed to load tools from {tools_file}: {e}") from e
-        finally:
-            if str(self.agent_dir) in sys.path:
-                sys.path.remove(str(self.agent_dir))
-            if str(self.agent_dir.parent) in sys.path:
-                sys.path.remove(str(self.agent_dir.parent))
 
     def load_entity_schema(self) -> dict:
         """Load entities from entity schema file."""

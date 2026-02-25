@@ -2,12 +2,11 @@
 
 import inspect
 import os
-import sys
-from importlib import import_module
 from pathlib import Path
 from sqlalchemy import text
 from ..test_generator.schemas import GeneratedTestCase
 from ..config import cfg
+from ..context_extractor.agent_loader import _load_module_from_file
 from .mock_interceptor import MockToolInterceptor
 
 
@@ -29,9 +28,6 @@ class AgentExecutor:
 
     def _import_agent(self):
         """Import agent module and set up database connection."""
-        agent_dir_str = str(self.agent_dir)
-        agent_parent_str = str(self.agent_dir.parent)
-
         tools_module_name = cfg.AGENT_TOOLS_FILE.removesuffix(".py")
         agent_module_name = cfg.AGENT_ENTRY_FILE.removesuffix(".py")
 
@@ -40,18 +36,15 @@ class AgentExecutor:
         test_db_path = self.agent_dir / "test_agent.db"
         os.environ["TEST_DB_URL"] = f"sqlite:///{test_db_path.absolute()}"
 
-        # Add paths for imports
-        if agent_dir_str not in sys.path:
-            sys.path.insert(0, agent_dir_str)
-        if agent_parent_str not in sys.path:
-            sys.path.insert(0, agent_parent_str)
+        tools_file = self.agent_dir / cfg.AGENT_TOOLS_FILE
+        agent_file = self.agent_dir / cfg.AGENT_ENTRY_FILE
 
         # Import tools FIRST so the agent module reuses the same instance
         try:
-            tools_module = import_module(tools_module_name)
+            tools_module = _load_module_from_file(tools_file, tools_module_name)
             self._db_engine = getattr(tools_module, cfg.AGENT_DB_ENGINE_ATTR)
 
-            self.agent_module = import_module(agent_module_name)
+            self.agent_module = _load_module_from_file(agent_file, agent_module_name)
             self._handle_message = getattr(
                 self.agent_module, cfg.AGENT_HANDLE_MESSAGE_FUNC
             )
