@@ -1,3 +1,11 @@
+agent:
+  tools_file: tools.py
+  entry_file: agent.py
+  system_prompt_var: SYSTEM_PROMPT
+  get_tools_func: get_tools
+  handle_message_func: handle_message
+  db_engine_attr: db_engine
+
 external_tools:
   - name: slack_post_message
     description: "Post a message to a Slack channel"

@@ -15,7 +15,7 @@ from .schemas import (
     StructuredSystemPromptExtraction,
     ToolCodeRuleList,
 )
-from ..config import AGENT_TOOLS_FILE
+from ..config import cfg
 
 
 class AgentTestSpaceExtractor:
@@ -41,7 +41,7 @@ class AgentTestSpaceExtractor:
             t["name"] for t in entity_schema.get("external_tools", [])
         ]
         tools, code_rules, entities = self.step3_enrich_tools_and_entities(
-            tools, entities, system_prompt, Path(agent_dir) / AGENT_TOOLS_FILE
+            tools, entities, system_prompt, Path(agent_dir) / cfg.AGENT_TOOLS_FILE
         )
         prompt_extraction = self.step4_parse_system_prompt(
             tools, code_rules, system_prompt

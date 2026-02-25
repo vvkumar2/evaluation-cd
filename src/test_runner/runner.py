@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 import yaml
 from ..test_generator.schemas import GeneratedTestSuite
-from ..config import AGENT_ENTITY_SCHEMA_FILE
+from ..config import cfg
 from .evaluator import BehaviorEvaluator
 from .executor import AgentExecutor
 from .schemas import TestResult, TestResultList, TestRunReport
@@ -49,7 +49,7 @@ class TestRunner:
 
         # Load external tool names for filtering
         agent_path = Path(agent_dir)
-        entity_schema_path = agent_path / AGENT_ENTITY_SCHEMA_FILE
+        entity_schema_path = agent_path / cfg.SCHEMA_FILE
         with open(entity_schema_path) as f:
             entity_data = yaml.safe_load(f)
         self._external_tool_names = {

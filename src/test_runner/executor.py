@@ -7,12 +7,7 @@ from importlib import import_module
 from pathlib import Path
 from sqlalchemy import text
 from ..test_generator.schemas import GeneratedTestCase
-from ..config import (
-    AGENT_TOOLS_FILE,
-    AGENT_ENTRY_FILE,
-    AGENT_HANDLE_MESSAGE_FUNC,
-    AGENT_DB_ENGINE_ATTR,
-)
+from ..config import cfg
 from .mock_interceptor import MockToolInterceptor
 
 
@@ -37,8 +32,8 @@ class AgentExecutor:
         agent_dir_str = str(self.agent_dir)
         agent_parent_str = str(self.agent_dir.parent)
 
-        tools_module_name = AGENT_TOOLS_FILE.removesuffix(".py")
-        agent_module_name = AGENT_ENTRY_FILE.removesuffix(".py")
+        tools_module_name = cfg.AGENT_TOOLS_FILE.removesuffix(".py")
+        agent_module_name = cfg.AGENT_ENTRY_FILE.removesuffix(".py")
 
         # Set test mode env vars BEFORE importing tools (read at module load time)
         os.environ["AGENT_TEST_MODE"] = "true"
@@ -54,10 +49,12 @@ class AgentExecutor:
         # Import tools FIRST so the agent module reuses the same instance
         try:
             tools_module = import_module(tools_module_name)
-            self._db_engine = getattr(tools_module, AGENT_DB_ENGINE_ATTR)
+            self._db_engine = getattr(tools_module, cfg.AGENT_DB_ENGINE_ATTR)
 
             self.agent_module = import_module(agent_module_name)
-            self._handle_message = getattr(self.agent_module, AGENT_HANDLE_MESSAGE_FUNC)
+            self._handle_message = getattr(
+                self.agent_module, cfg.AGENT_HANDLE_MESSAGE_FUNC
+            )
         except (ImportError, AttributeError) as e:
             raise RuntimeError(
                 f"Failed to import agent from {self.agent_dir}: {e}"
@@ -67,7 +64,7 @@ class AgentExecutor:
         """Load all tools (including MCP) once. Must be called before execute_test.
 
         Args:
-            external_tools: External tool definitions from entity_schema.yml.
+            external_tools: External tool definitions from schema.yml.
                 Used to build mock responses so real APIs are not called.
         """
         load_all_tools = getattr(self.agent_module, "load_all_tools", None)

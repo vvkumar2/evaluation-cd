@@ -4,13 +4,7 @@ from importlib import import_module
 from pathlib import Path
 import yaml
 
-from ..config import (
-    AGENT_TOOLS_FILE,
-    AGENT_ENTRY_FILE,
-    AGENT_ENTITY_SCHEMA_FILE,
-    AGENT_SYSTEM_PROMPT_VAR,
-    AGENT_GET_TOOLS_FUNC,
-)
+from ..config import cfg
 
 
 class AgentLoader:
@@ -21,18 +15,20 @@ class AgentLoader:
 
     def load_tools_schema(self) -> dict:
         """Load tools from the agent's tools file and external tools from entity schema."""
-        tools_file = self.agent_dir / AGENT_TOOLS_FILE
+        tools_file = self.agent_dir / cfg.AGENT_TOOLS_FILE
         if not tools_file.exists():
-            raise FileNotFoundError(f"{AGENT_TOOLS_FILE} not found in {self.agent_dir}")
+            raise FileNotFoundError(
+                f"{cfg.AGENT_TOOLS_FILE} not found in {self.agent_dir}"
+            )
 
-        tools_module_name = AGENT_TOOLS_FILE.removesuffix(".py")
+        tools_module_name = cfg.AGENT_TOOLS_FILE.removesuffix(".py")
 
         sys.path.insert(0, str(self.agent_dir))
         sys.path.insert(0, str(self.agent_dir.parent))
 
         try:
             module = import_module(f"{self.agent_dir.name}.{tools_module_name}")
-            get_tools_fn = getattr(module, AGENT_GET_TOOLS_FUNC)
+            get_tools_fn = getattr(module, cfg.AGENT_GET_TOOLS_FUNC)
             tools = get_tools_fn()
 
             tools_schema = {"tools": []}
@@ -93,23 +89,23 @@ class AgentLoader:
 
     def load_entity_schema(self) -> dict:
         """Load entities from entity schema file."""
-        schema_file = self.agent_dir / AGENT_ENTITY_SCHEMA_FILE
+        schema_file = self.agent_dir / cfg.SCHEMA_FILE
         if not schema_file.exists():
-            raise FileNotFoundError(
-                f"{AGENT_ENTITY_SCHEMA_FILE} not found in {self.agent_dir}"
-            )
+            raise FileNotFoundError(f"{cfg.SCHEMA_FILE} not found in {self.agent_dir}")
 
         with open(schema_file) as f:
             return yaml.safe_load(f)
 
     def load_system_prompt(self) -> str:
         """Load system prompt from agent entry file."""
-        agent_file = self.agent_dir / AGENT_ENTRY_FILE
+        agent_file = self.agent_dir / cfg.AGENT_ENTRY_FILE
         if not agent_file.exists():
-            raise FileNotFoundError(f"{AGENT_ENTRY_FILE} not found in {self.agent_dir}")
+            raise FileNotFoundError(
+                f"{cfg.AGENT_ENTRY_FILE} not found in {self.agent_dir}"
+            )
 
         content = agent_file.read_text()
-        var = AGENT_SYSTEM_PROMPT_VAR
+        var = cfg.AGENT_SYSTEM_PROMPT_VAR
         patterns = [
             rf'{var}\s*=\s*"""(.*?)"""',
             rf"{var}\s*=\s*'''(.*?)'''",
@@ -123,7 +119,7 @@ class AgentLoader:
                 return match.group(1).strip()
 
         raise ValueError(
-            f"{AGENT_SYSTEM_PROMPT_VAR} constant not found in {AGENT_ENTRY_FILE}"
+            f"{cfg.AGENT_SYSTEM_PROMPT_VAR} constant not found in {cfg.AGENT_ENTRY_FILE}"
         )
 
     def load_all(self) -> tuple[dict, dict, str]:

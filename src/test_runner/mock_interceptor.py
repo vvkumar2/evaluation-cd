@@ -13,7 +13,7 @@ class MockToolInterceptor:
     """
 
     def __init__(self, default_responses: dict[str, str]):
-        """Initialize with default success responses from entity_schema.yml.
+        """Initialize with default success responses from schema.yml.
 
         Args:
             default_responses: Mapping of tool name to default success response text.

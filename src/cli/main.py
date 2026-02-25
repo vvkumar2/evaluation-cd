@@ -13,7 +13,7 @@ from ..context_extractor.parsers.entity_parser import parse_entity_schema
 from ..test_generator.generator import TestCaseGenerator
 from ..test_runner.runner import TestRunner
 from ..test_runner.html_reporter import generate_html_report
-from ..config import AGENT_ENTITY_SCHEMA_FILE, AGENT_TOOLS_FILE, AGENT_ENTRY_FILE
+from ..config import cfg, init as init_config
 
 console = Console()
 
@@ -41,6 +41,7 @@ def run_pipeline(agent_dir):
 
     agent_path = Path(agent_dir)
     agent_name = agent_path.name
+    init_config(agent_path)
 
     try:
         client = _init_llm_client()
@@ -49,7 +50,7 @@ def run_pipeline(agent_dir):
         _, output_dict = _run_extraction_stage(agent_path, agent_name, client)
 
         # Generate
-        entity_schema_path = agent_path / AGENT_ENTITY_SCHEMA_FILE
+        entity_schema_path = agent_path / cfg.SCHEMA_FILE
         with open(entity_schema_path) as f:
             entity_schema_raw = yaml.safe_load(f)
         entity_schema_data = parse_entity_schema(entity_schema_raw)
@@ -72,7 +73,7 @@ def run_pipeline(agent_dir):
     "--agent-dir",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
     required=True,
-    help=f"Path to agent directory (must contain: {AGENT_ENTRY_FILE}, {AGENT_TOOLS_FILE}, {AGENT_ENTITY_SCHEMA_FILE})",
+    help="Path to agent directory (must contain agent.py, tools.py, schema.yml)",
 )
 def extract(agent_dir):
     """
@@ -82,6 +83,7 @@ def extract(agent_dir):
 
     agent_path = Path(agent_dir)
     agent_name = agent_path.name
+    init_config(agent_path)
 
     try:
         client = _init_llm_client()
@@ -103,7 +105,7 @@ def extract(agent_dir):
     "--entity-schema",
     type=click.Path(exists=True, file_okay=True, dir_okay=False),
     required=True,
-    help=f"Path to entity schema YAML file ({AGENT_ENTITY_SCHEMA_FILE} from agent)",
+    help="Path to entity schema YAML file (schema.yml from agent)",
 )
 def generate_tests(extraction_file, entity_schema):
     """
@@ -145,7 +147,7 @@ def generate_tests(extraction_file, entity_schema):
     "--agent-dir",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
     required=True,
-    help=f"Path to agent directory (must contain {AGENT_ENTRY_FILE})",
+    help="Path to agent directory (must contain agent.py, tools.py, schema.yml)",
 )
 def run_tests(test_file, agent_dir):
     """
@@ -155,6 +157,7 @@ def run_tests(test_file, agent_dir):
 
     test_path = Path(test_file)
     agent_path = Path(agent_dir)
+    init_config(agent_path)
 
     try:
         client = _init_llm_client()
