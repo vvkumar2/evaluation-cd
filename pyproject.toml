@@ -1,2 +1,27 @@
+[project]
+name = "agent-eval"
+version = "0.1.0"
+description = "AI Agent Testing & Evaluation Pipeline"
+requires-python = ">=3.11"
+dependencies = [
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+    "openai>=2.0.0",
+    "langchain>=1.0.0",
+    "langchain-openai>=0.1.0",
+    "langchain-core>=0.1.0",
+    "sqlalchemy>=2.0.0",
+    "click>=8.1.0",
+    "rich>=13.7.0",
+    "mcp>=1.0.0",
+    "langchain-mcp-adapters>=0.1.0",
+]
+
+[project.scripts]
+agent-eval = "src.cli.main:cli"
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
 [tool.black]
 line-length = 88
