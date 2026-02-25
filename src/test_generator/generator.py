@@ -91,7 +91,9 @@ class TestCaseGenerator:
         test_case_dict = self._parse_test_case_response(response)
 
         # Validate and fix backend state
-        backend_state, valid = self._validate_and_fix_backend_state(test_case_dict["backend_state"], entities)
+        backend_state, valid = self._validate_and_fix_backend_state(
+            test_case_dict["backend_state"], entities
+        )
 
         if not valid:
             return None
