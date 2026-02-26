@@ -324,7 +324,7 @@ def _write_github_outputs(report, agent_name: str | None = None):
 def _init_llm_client():
     """Initialize OpenAI client."""
     try:
-        return OpenAI()
+        return OpenAI(timeout=200)
     except Exception as e:
         console.print(f"[red]Failed to initialize OpenAI:[/red] {e}")
         console.print("[yellow]Hint:[/yellow] Set OPENAI_API_KEY environment variable")
