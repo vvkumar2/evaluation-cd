@@ -9,29 +9,67 @@ import yaml
 
 SCHEMA_FILE = "schema.yml"
 
-_REQUIRED_KEYS = [
+_REQUIRED_AGENT_KEYS = [
     "tools_file",
     "entry_file",
     "system_prompt_var",
     "get_tools_func",
     "handle_message_func",
-    "db_engine_attr",
 ]
 
 
-class _Config:
+class AgentConfig:
+    """Agent-specific configuration from the ``agent:`` section."""
+
+    def __init__(
+        self,
+        tools_file: str,
+        entry_file: str,
+        system_prompt_var: str,
+        get_tools_func: str,
+        handle_message_func: str,
+    ):
+        self.tools_file = tools_file
+        self.entry_file = entry_file
+        self.system_prompt_var = system_prompt_var
+        self.get_tools_func = get_tools_func
+        self.handle_message_func = handle_message_func
+
+
+class BackendConfig:
+    """Base backend configuration."""
+
+    def __init__(self, type: str):
+        self.type = type
+
+
+class SqliteBackendConfig(BackendConfig):
+    """SQLite-specific backend configuration."""
+
+    def __init__(self, db_engine_attr: str):
+        super().__init__(type="sqlite")
+        self.db_engine_attr = db_engine_attr
+
+
+class Config:
     """Namespace populated by ``init()``."""
 
     SCHEMA_FILE: str = SCHEMA_FILE
-    AGENT_TOOLS_FILE: str | None = None
-    AGENT_ENTRY_FILE: str | None = None
-    AGENT_SYSTEM_PROMPT_VAR: str | None = None
-    AGENT_GET_TOOLS_FUNC: str | None = None
-    AGENT_HANDLE_MESSAGE_FUNC: str | None = None
-    AGENT_DB_ENGINE_ATTR: str | None = None
+    agent: AgentConfig | None = None
+    backend: BackendConfig | None = None
 
 
-cfg = _Config()
+cfg = Config()
+
+
+def _parse_sqlite_backend(section: dict) -> SqliteBackendConfig:
+    """Parse sqlite backend config, requiring db_engine_attr."""
+    db_engine_attr = section.get("db_engine_attr")
+    if not db_engine_attr:
+        raise RuntimeError(
+            "Missing required key 'db_engine_attr' in backend section for sqlite backend"
+        )
+    return SqliteBackendConfig(db_engine_attr=db_engine_attr)
 
 
 def init(agent_dir: str | Path) -> None:
@@ -43,19 +81,37 @@ def init(agent_dir: str | Path) -> None:
     with open(schema_path) as f:
         data = yaml.safe_load(f)
 
+    # Parse agent section
     agent_section = data.get("agent")
     if not agent_section:
         raise RuntimeError(f"Missing 'agent' section in {schema_path}")
 
-    missing = [k for k in _REQUIRED_KEYS if k not in agent_section]
+    missing = [k for k in _REQUIRED_AGENT_KEYS if k not in agent_section]
     if missing:
         raise RuntimeError(
             f"Missing required keys in agent section of {schema_path}: {missing}"
         )
 
-    cfg.AGENT_TOOLS_FILE = agent_section["tools_file"]
-    cfg.AGENT_ENTRY_FILE = agent_section["entry_file"]
-    cfg.AGENT_SYSTEM_PROMPT_VAR = agent_section["system_prompt_var"]
-    cfg.AGENT_GET_TOOLS_FUNC = agent_section["get_tools_func"]
-    cfg.AGENT_HANDLE_MESSAGE_FUNC = agent_section["handle_message_func"]
-    cfg.AGENT_DB_ENGINE_ATTR = agent_section["db_engine_attr"]
+    cfg.agent = AgentConfig(
+        tools_file=agent_section["tools_file"],
+        entry_file=agent_section["entry_file"],
+        system_prompt_var=agent_section["system_prompt_var"],
+        get_tools_func=agent_section["get_tools_func"],
+        handle_message_func=agent_section["handle_message_func"],
+    )
+
+    # Parse backend section
+    backend_section = data.get("backend")
+    if not backend_section:
+        raise RuntimeError(f"Missing 'backend' section in {schema_path}")
+
+    backend_type = backend_section.get("type")
+    if not backend_type:
+        raise RuntimeError(f"Missing 'type' in backend section of {schema_path}")
+
+    if backend_type == "sqlite":
+        cfg.backend = _parse_sqlite_backend(backend_section)
+    else:
+        raise RuntimeError(
+            f"Unsupported backend type: '{backend_type}'. Currently only 'sqlite' is supported."
+        )

@@ -4,6 +4,9 @@ agent:
   system_prompt_var: SYSTEM_PROMPT
   get_tools_func: get_tools
   handle_message_func: handle_message
+
+backend:
+  type: sqlite
   db_engine_attr: db_engine
 
 external_tools:
@@ -22,6 +25,7 @@ external_tools:
 
 entities:
   - name: order
+    table: orders
     description: "Customer order information"
     fields:
       id:
@@ -44,6 +48,7 @@ entities:
         description: "Days since order was delivered (0 if not delivered)"
 
   - name: customer
+    table: customers
     description: "Customer information"
     fields:
       id:
