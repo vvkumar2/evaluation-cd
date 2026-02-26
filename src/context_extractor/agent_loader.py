@@ -38,17 +38,17 @@ class AgentLoader:
 
     def load_tools_schema(self) -> dict:
         """Load tools from the agent's tools file and external tools from entity schema."""
-        tools_file = self.agent_dir / cfg.AGENT_TOOLS_FILE
+        tools_file = self.agent_dir / cfg.agent.tools_file
         if not tools_file.exists():
             raise FileNotFoundError(
-                f"{cfg.AGENT_TOOLS_FILE} not found in {self.agent_dir}"
+                f"{cfg.agent.tools_file} not found in {self.agent_dir}"
             )
 
-        tools_module_name = cfg.AGENT_TOOLS_FILE.removesuffix(".py")
+        tools_module_name = cfg.agent.tools_file.removesuffix(".py")
 
         try:
             module = _load_module_from_file(tools_file, tools_module_name)
-            get_tools_fn = getattr(module, cfg.AGENT_GET_TOOLS_FUNC)
+            get_tools_fn = getattr(module, cfg.agent.get_tools_func)
             tools = get_tools_fn()
 
             tools_schema = {"tools": []}
@@ -113,14 +113,14 @@ class AgentLoader:
 
     def load_system_prompt(self) -> str:
         """Load system prompt from agent entry file."""
-        agent_file = self.agent_dir / cfg.AGENT_ENTRY_FILE
+        agent_file = self.agent_dir / cfg.agent.entry_file
         if not agent_file.exists():
             raise FileNotFoundError(
-                f"{cfg.AGENT_ENTRY_FILE} not found in {self.agent_dir}"
+                f"{cfg.agent.entry_file} not found in {self.agent_dir}"
             )
 
         content = agent_file.read_text()
-        var = cfg.AGENT_SYSTEM_PROMPT_VAR
+        var = cfg.agent.system_prompt_var
         patterns = [
             rf'{var}\s*=\s*"""(.*?)"""',
             rf"{var}\s*=\s*'''(.*?)'''",
@@ -134,7 +134,7 @@ class AgentLoader:
                 return match.group(1).strip()
 
         raise ValueError(
-            f"{cfg.AGENT_SYSTEM_PROMPT_VAR} constant not found in {cfg.AGENT_ENTRY_FILE}"
+            f"{cfg.agent.system_prompt_var} constant not found in {cfg.agent.entry_file}"
         )
 
     def load_all(self) -> tuple[dict, dict, str]:

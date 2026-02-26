@@ -3,9 +3,10 @@
 import inspect
 import os
 from pathlib import Path
+import yaml
 from sqlalchemy import text
 from ..test_generator.schemas import GeneratedTestCase
-from ..config import cfg
+from ..config import cfg, SCHEMA_FILE
 from ..context_extractor.agent_loader import _load_module_from_file
 from .mock_interceptor import MockToolInterceptor
 
@@ -24,34 +25,50 @@ class AgentExecutor:
         self._tools = None
         self._mcp_stack = None
         self._interceptor = None
+        self._entity_map = None  # {table_name: [field_names]} built from schema
         self._import_agent()
+        self._load_entity_map()
 
     def _import_agent(self):
         """Import agent module and set up database connection."""
-        tools_module_name = cfg.AGENT_TOOLS_FILE.removesuffix(".py")
-        agent_module_name = cfg.AGENT_ENTRY_FILE.removesuffix(".py")
+        tools_module_name = cfg.agent.tools_file.removesuffix(".py")
+        agent_module_name = cfg.agent.entry_file.removesuffix(".py")
 
         # Set test mode env vars BEFORE importing tools (read at module load time)
         os.environ["AGENT_TEST_MODE"] = "true"
         test_db_path = self.agent_dir / "test_agent.db"
         os.environ["TEST_DB_URL"] = f"sqlite:///{test_db_path.absolute()}"
 
-        tools_file = self.agent_dir / cfg.AGENT_TOOLS_FILE
-        agent_file = self.agent_dir / cfg.AGENT_ENTRY_FILE
+        tools_file = self.agent_dir / cfg.agent.tools_file
+        agent_file = self.agent_dir / cfg.agent.entry_file
 
         # Import tools FIRST so the agent module reuses the same instance
         try:
             tools_module = _load_module_from_file(tools_file, tools_module_name)
-            self._db_engine = getattr(tools_module, cfg.AGENT_DB_ENGINE_ATTR)
+            self._db_engine = getattr(tools_module, cfg.backend.db_engine_attr)
 
             self.agent_module = _load_module_from_file(agent_file, agent_module_name)
             self._handle_message = getattr(
-                self.agent_module, cfg.AGENT_HANDLE_MESSAGE_FUNC
+                self.agent_module, cfg.agent.handle_message_func
             )
         except (ImportError, AttributeError) as e:
             raise RuntimeError(
                 f"Failed to import agent from {self.agent_dir}: {e}"
             ) from e
+
+    def _load_entity_map(self):
+        """Build entity map from schema.yml: {table_name: [field_names]}."""
+        schema_path = self.agent_dir / SCHEMA_FILE
+        with open(schema_path) as f:
+            data = yaml.safe_load(f)
+
+        entities = data.get("entities", [])
+        # Preserve order for insert/delete sequencing
+        self._entity_map = {}
+        for entity in entities:
+            table = entity.get("table", entity["name"] + "s")
+            fields = list(entity.get("fields", {}).keys())
+            self._entity_map[table] = fields
 
     async def setup_tools(self, external_tools: list[dict] = None):
         """Load all tools (including MCP) once. Must be called before execute_test.
@@ -112,38 +129,47 @@ class AgentExecutor:
             self._cleanup_backend()
 
     def _setup_backend(self, backend_state: dict[str, list[dict]]):
-        """Seed the test SQLite database with test-specific data."""
-        customers = backend_state.get("customers", [])
-        orders = backend_state.get("orders", [])
-
-        with self._db_engine.connect() as conn:
-            conn.execute(text("DELETE FROM orders"))
-            conn.execute(text("DELETE FROM customers"))
-
-            if customers:
-                conn.execute(
-                    text(
-                        "INSERT INTO customers (id, name, tier, email) "
-                        "VALUES (:id, :name, :tier, :email)"
-                    ),
-                    customers,
-                )
-
-            if orders:
-                conn.execute(
-                    text(
-                        "INSERT INTO orders "
-                        "(id, customer_id, price, status, delivered_date_days_ago) "
-                        "VALUES (:id, :customer_id, :price, :status, :delivered_date_days_ago)"
-                    ),
-                    orders,
-                )
-
-            conn.commit()
+        """Seed the test database with test-specific data."""
+        if cfg.backend.type == "sqlite":
+            self._setup_sqlite_backend(backend_state)
+        else:
+            raise RuntimeError(f"Unsupported backend type: '{cfg.backend.type}'")
 
     def _cleanup_backend(self):
         """Clear all test data from the database."""
+        if cfg.backend.type == "sqlite":
+            self._cleanup_sqlite_backend()
+        else:
+            raise RuntimeError(f"Unsupported backend type: '{cfg.backend.type}'")
+
+    def _setup_sqlite_backend(self, backend_state: dict[str, list[dict]]):
+        """Seed the test SQLite database with test-specific data using entity schema."""
+        tables = list(self._entity_map.keys())
+
         with self._db_engine.connect() as conn:
-            conn.execute(text("DELETE FROM orders"))
-            conn.execute(text("DELETE FROM customers"))
+            # Delete in reverse order (handles foreign key constraints)
+            for table in reversed(tables):
+                conn.execute(text(f"DELETE FROM {table}"))
+
+            # Insert in forward order
+            for table in tables:
+                rows = backend_state.get(table, [])
+                if rows:
+                    fields = self._entity_map[table]
+                    cols = ", ".join(fields)
+                    placeholders = ", ".join(f":{f}" for f in fields)
+                    conn.execute(
+                        text(f"INSERT INTO {table} ({cols}) VALUES ({placeholders})"),
+                        rows,
+                    )
+
+            conn.commit()
+
+    def _cleanup_sqlite_backend(self):
+        """Clear all test data from the SQLite database."""
+        tables = list(self._entity_map.keys())
+
+        with self._db_engine.connect() as conn:
+            for table in reversed(tables):
+                conn.execute(text(f"DELETE FROM {table}"))
             conn.commit()
