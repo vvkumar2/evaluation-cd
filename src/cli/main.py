@@ -1,3 +1,4 @@
+import os
 import sys
 import traceback
 from pathlib import Path
@@ -60,8 +61,22 @@ def run_pipeline(agent_dir):
         )
 
         # Run
-        _run_execution_stage(agent_path, generation_file, client, agent_name)
+        _, report = _run_execution_stage(
+            agent_path, generation_file, client, agent_name
+        )
 
+        # Write GitHub Actions outputs if running in CI
+        _write_github_outputs(report, agent_name)
+
+        if report.pass_rate < 1.0:
+            console.print(
+                f"\n[red]Pipeline failed:[/red] "
+                f"pass rate {report.pass_rate*100:.0f}% < 100%"
+            )
+            sys.exit(1)
+
+    except SystemExit:
+        raise
     except Exception as e:
         console.print(f"\n[red]Pipeline failed:[/red] {e}")
         traceback.print_exc()
@@ -285,6 +300,25 @@ def _run_execution_stage(
     )
 
     return report_file, report
+
+
+def _write_github_outputs(report, agent_name: str | None = None):
+    """Write pass_rate and html_report to $GITHUB_OUTPUT if running in CI."""
+    github_output = os.environ.get("GITHUB_OUTPUT")
+    if not github_output:
+        return
+
+    if agent_name is not None:
+        html_file = Path("tests/runner") / f"{agent_name}_extraction_tests_report.html"
+    else:
+        html_file = Path("tests/runner") / "report.html"
+
+    with open(github_output, "a") as f:
+        f.write(f"pass_rate={report.pass_rate*100:.0f}\n")
+        f.write(f"html_report={html_file}\n")
+        f.write(f"total_tests={report.total_tests}\n")
+        f.write(f"passed_tests={report.passed_tests}\n")
+        f.write(f"failed_tests={report.failed_tests}\n")
 
 
 def _init_llm_client():
