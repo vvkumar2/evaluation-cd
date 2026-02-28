@@ -9,6 +9,7 @@ build/
 # Project files
 *.env
 tests/
+.playwright-mcp/*
 
 # SQLite databases
 *.db
