@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import traceback
 from importlib.metadata import version
 from pathlib import Path
@@ -46,14 +47,20 @@ def run_pipeline(agent_dir):
     agent_path = Path(agent_dir)
     agent_name = agent_path.name
     init_config(agent_path)
+    pipeline_start = time.monotonic()
 
     try:
         client = _init_llm_client()
 
         # Extract
+        stage_start = time.monotonic()
         _, output_dict = _run_extraction_stage(agent_path, agent_name, client)
+        console.print(
+            f"  [dim]Extraction took {_fmt_duration(time.monotonic() - stage_start)}[/dim]"
+        )
 
         # Generate
+        stage_start = time.monotonic()
         entity_schema_path = agent_path / cfg.SCHEMA_FILE
         with open(entity_schema_path) as f:
             entity_schema_raw = yaml.safe_load(f)
@@ -67,10 +74,17 @@ def run_pipeline(agent_dir):
             client,
             external_tools,
         )
+        console.print(
+            f"  [dim]Generation took {_fmt_duration(time.monotonic() - stage_start)}[/dim]"
+        )
 
         # Run
+        stage_start = time.monotonic()
         _, report = _run_execution_stage(
             agent_path, generation_file, client, agent_name
+        )
+        console.print(
+            f"  [dim]Execution took {_fmt_duration(time.monotonic() - stage_start)}[/dim]"
         )
 
         # Write GitHub Actions outputs if running in CI
@@ -87,6 +101,10 @@ def run_pipeline(agent_dir):
         console.print(f"\n[red]Pipeline failed:[/red] {e}")
         traceback.print_exc()
         sys.exit(1)
+    finally:
+        console.print(
+            f"\n[dim]Pipeline completed in {_fmt_duration(time.monotonic() - pipeline_start)}[/dim]"
+        )
 
 
 @cli.command()
@@ -302,12 +320,6 @@ def _run_execution_stage(
     html_file = report_file.with_suffix(".html")
     generate_html_report(report, html_file)
 
-    duration = report.duration_seconds
-    if duration >= 60:
-        duration_str = f"{int(duration // 60)}m {int(duration % 60)}s"
-    else:
-        duration_str = f"{duration:.1f}s"
-
     pass_color = (
         "green"
         if report.pass_rate >= 0.8
@@ -315,7 +327,7 @@ def _run_execution_stage(
     )
     console.print(
         f"  [{pass_color}]{report.passed_tests}/{report.total_tests} passed[/{pass_color}] "
-        f"({report.pass_rate*100:.0f}%) in {duration_str} "
+        f"({report.pass_rate*100:.0f}%) in {_fmt_duration(report.duration_seconds)} "
         f"[dim]→ {html_file}[/dim]"
     )
 
@@ -353,6 +365,13 @@ def _init_llm_client():
         console.print(f"[red]Failed to initialize OpenAI:[/red] {e}")
         console.print("[yellow]Hint:[/yellow] Set OPENAI_API_KEY environment variable")
         sys.exit(1)
+
+
+def _fmt_duration(seconds: float) -> str:
+    """Format a duration in seconds to a human-readable string."""
+    if seconds >= 60:
+        return f"{int(seconds // 60)}m {int(seconds % 60)}s"
+    return f"{seconds:.1f}s"
 
 
 if __name__ == "__main__":
