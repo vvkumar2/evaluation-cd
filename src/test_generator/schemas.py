@@ -75,7 +75,11 @@ class TestInputLLM(BaseModel):
     def to_test_input(self) -> "TestInput":
         """Convert to TestInput with dict context."""
         context_dict = (
-            {entry.key: entry.value for entry in self.context} if self.context else None
+            {
+                entry.key: entry.value for entry in self.context
+            }  # pylint: disable=not-an-iterable
+            if self.context
+            else None
         )
         return TestInput(message=self.message, context=context_dict)
 

@@ -11,16 +11,10 @@ from ..context_extractor.agent_loader import _load_module_from_file
 from .mock_interceptor import MockToolInterceptor
 
 
-class AgentExecutor:
+class AgentExecutor:  # pylint: disable=too-many-instance-attributes
     """Execute agent with test cases."""
 
     def __init__(self, agent_dir: Path | str):
-        """
-        Initialize executor.
-
-        Args:
-            agent_dir: Path to agent directory
-        """
         self.agent_dir = Path(agent_dir)
         self._tools = None
         self._mcp_stack = None
@@ -71,12 +65,7 @@ class AgentExecutor:
             self._entity_map[table] = fields
 
     async def setup_tools(self, external_tools: list[dict] = None):
-        """Load all tools (including MCP) once. Must be called before execute_test.
-
-        Args:
-            external_tools: External tool definitions from schema.yml.
-                Used to build mock responses so real APIs are not called.
-        """
+        """Load all tools (including MCP) once. Must be called before execute_test."""
         load_all_tools = getattr(self.agent_module, "load_all_tools", None)
         if not load_all_tools:
             raise RuntimeError("Agent module does not export load_all_tools()")
@@ -87,8 +76,10 @@ class AgentExecutor:
                 mock_responses[tool_def["name"]] = tool_def.get("mock_response", "OK")
 
         self._interceptor = MockToolInterceptor(mock_responses)
-        self._tools, self._mcp_stack = await load_all_tools(
-            tool_interceptors=[self._interceptor]
+        self._tools, self._mcp_stack = (
+            await load_all_tools(  # pylint: disable=not-callable
+                tool_interceptors=[self._interceptor]
+            )
         )
 
     async def cleanup_tools(self):
@@ -98,15 +89,7 @@ class AgentExecutor:
             self._mcp_stack = None
 
     async def execute_test(self, test_case: GeneratedTestCase) -> tuple[str, list[str]]:
-        """
-        Execute a test case against the agent.
-
-        Args:
-            test_case: The test case to execute
-
-        Returns:
-            Tuple of (agent response text, list of tool names called)
-        """
+        """Execute a test case. Returns (response text, tool names called)."""
         self._setup_backend(test_case.backend_state)
         if self._interceptor:
             self._interceptor.set_overrides(test_case.mock_tool_responses)

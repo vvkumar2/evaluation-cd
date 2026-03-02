@@ -1,5 +1,7 @@
 """Enrich intent rules with structured conditions."""
 
+from openai import OpenAI
+
 from ..schemas.prompt_schema import (
     Intent,
     StructuredIntent,
@@ -8,13 +10,15 @@ from ..schemas.prompt_schema import (
 )
 from ..schemas.entity_schema import EntitySchemaList
 from ..schemas.tool_schema import EnrichedToolSchemaList
+from ...config import EXTRACTION_MODEL
+from ...utils import format_entities_detailed, format_tools
 from ..templates import RULES_STRUCTURING_PROMPT
 
 
 class RuleEnricher:
     """Converts natural language rules to structured rules with explicit conditions."""
 
-    def __init__(self, llm_client=None):
+    def __init__(self, llm_client: OpenAI):
         self.client = llm_client
 
     def enrich_intent_rules(
@@ -25,9 +29,6 @@ class RuleEnricher:
         external_tool_names: list[str],
     ) -> StructuredIntent:
         """Convert natural language rules to structured rules."""
-        if not self.client:
-            return self._intent_to_structured(intent, [])
-
         structured_rules = self._enrich_rules(
             tools, entities, intent, external_tool_names
         )
@@ -50,11 +51,17 @@ class RuleEnricher:
         external_tool_names: list[str],
     ) -> list[StructuredIntentRule]:
         """Use LLM to convert natural language rules to structured rules."""
-        entities_text = self._format_entities(entities)
-        tools_text = self._format_tools(tools)
+        entities_text = format_entities_detailed(entities)
         rules_text = self._format_rules(intent)
         outcomes_text = self._format_outcomes(intent)
         slots_text = self._format_slots(intent)
+
+        # Separate internal vs external tools so the LLM knows which can appear in expected_tool_calls
+        external_set = set(external_tool_names)
+        internal_tools = EnrichedToolSchemaList(
+            tools=[t for t in tools.tools if t.name not in external_set]
+        )
+        tools_text = format_tools(internal_tools)
         external_tools_text = (
             ", ".join(external_tool_names) if external_tool_names else "none"
         )
@@ -71,42 +78,11 @@ class RuleEnricher:
         )
 
         response = self.client.responses.parse(
-            model="gpt-5-mini",
+            model=EXTRACTION_MODEL,
             input=[{"role": "user", "content": llm_prompt}],
             text_format=StructuredRulesResponse,
         )
         return response.output_parsed.rules
-
-    def _format_entities(self, entities: EntitySchemaList) -> str:
-        """Format entities with their fields and thresholds."""
-        lines = []
-        for entity in entities.entities:
-            lines.append(f"\n{entity.name}:")
-            lines.append(f"Description: {entity.description}")
-            if entity.fields:
-                lines.append("  Fields:")
-                for field in entity.fields:
-                    lines.append(
-                        f"- {field.name} ({field.type}): {field.description} {f', Enum: {field.enum}' if field.enum else ''}"
-                    )
-            if entity.thresholds:
-                lines.append("  Thresholds:")
-                for threshold in entity.thresholds:
-                    unit_str = f"{threshold.unit}" if threshold.unit else ""
-                    lines.append(f"- {threshold.name}: {threshold.value}{unit_str}")
-        return "\n".join(lines)
-
-    def _format_tools(self, tools: EnrichedToolSchemaList) -> str:
-        """Format available tools."""
-        lines = []
-        for tool in tools.tools:
-            lines.append(f"\n{tool.name}:")
-            lines.append(f"Description: {tool.description}")
-            if tool.parameters:
-                lines.append("Parameters:")
-                for param in tool.parameters:
-                    lines.append(f"- {param.name} ({param.type}): {param.description}")
-        return "\n".join(lines)
 
     def _format_rules(self, intent: Intent) -> str:
         """Format natural language rules."""
@@ -132,19 +108,3 @@ class RuleEnricher:
         for slot in intent.required_slots:
             lines.append(f"- {slot.slot_name} (source: {slot.source})")
         return "\n".join(lines) if lines else "None"
-
-    def _intent_to_structured(
-        self,
-        intent: Intent,
-        structured_rules: list[StructuredIntentRule],
-    ) -> StructuredIntent:
-        """Convert Intent to StructuredIntent."""
-        return StructuredIntent(
-            name=intent.name,
-            description=intent.description,
-            required_slots=intent.required_slots,
-            workflow=intent.workflow,
-            rules=structured_rules,
-            requires_confirmation=intent.requires_confirmation,
-            outcomes=intent.outcomes,
-        )

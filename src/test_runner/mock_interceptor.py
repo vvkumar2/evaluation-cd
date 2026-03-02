@@ -5,29 +5,14 @@ from mcp.types import CallToolResult, TextContent
 
 
 class MockToolInterceptor:
-    """Intercepts MCP tool calls and returns mock responses instead of calling real APIs.
-
-    Supports both success and error responses matching the real MCP server format.
-    Per-test overrides can be applied via set_overrides() to simulate failures
-    for specific test cases.
-    """
+    """Intercepts MCP tool calls and returns mock responses instead of calling real APIs."""
 
     def __init__(self, default_responses: dict[str, str]):
-        """Initialize with default success responses from schema.yml.
-
-        Args:
-            default_responses: Mapping of tool name to default success response text.
-        """
         self.default_responses = default_responses
         self._overrides: dict[str, dict] = {}
 
     def set_overrides(self, overrides: dict[str, dict] | None):
-        """Set per-test response overrides.
-
-        Args:
-            overrides: Mapping of tool name to {"response": str, "is_error": bool}.
-                Pass None to clear overrides.
-        """
+        """Set per-test response overrides. Pass None to clear."""
         self._overrides = overrides or {}
 
     async def __call__(self, request, handler):
