@@ -124,6 +124,7 @@ def extract(agent_dir):
     agent_name = agent_path.name
     init_config(agent_path)
 
+    start = time.monotonic()
     try:
         client = _init_llm_client()
         _run_extraction_stage(agent_path, agent_name, client)
@@ -131,6 +132,10 @@ def extract(agent_dir):
         console.print(f"\n[red]Extraction failed:[/red] {e}")
         traceback.print_exc()
         sys.exit(1)
+    finally:
+        console.print(
+            f"\n[dim]Completed in {_fmt_duration(time.monotonic() - start)}[/dim]"
+        )
 
 
 @cli.command()
@@ -155,6 +160,7 @@ def generate_tests(extraction_file, entity_schema):
     extraction_path = Path(extraction_file)
     entity_schema_path = Path(entity_schema)
 
+    start = time.monotonic()
     try:
         client = _init_llm_client()
         with open(extraction_path) as f:
@@ -179,6 +185,10 @@ def generate_tests(extraction_file, entity_schema):
         console.print(f"\n[red]Test generation failed:[/red] {e}")
         traceback.print_exc()
         sys.exit(1)
+    finally:
+        console.print(
+            f"\n[dim]Completed in {_fmt_duration(time.monotonic() - start)}[/dim]"
+        )
 
 
 @cli.command()
@@ -204,14 +214,18 @@ def run_tests(test_file, agent_dir):
     agent_path = Path(agent_dir)
     init_config(agent_path)
 
+    start = time.monotonic()
     try:
         client = _init_llm_client()
         _run_execution_stage(agent_path, test_path, client)
-
     except Exception as e:
         console.print(f"\n[red]Test run failed:[/red] {e}")
         traceback.print_exc()
         sys.exit(1)
+    finally:
+        console.print(
+            f"\n[dim]Completed in {_fmt_duration(time.monotonic() - start)}[/dim]"
+        )
 
 
 def _run_extraction_stage(

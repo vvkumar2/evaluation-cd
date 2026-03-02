@@ -30,7 +30,7 @@ def format_entities_detailed(
                 lines.append(
                     f"  - {field.name} ({field.type}): {field.description}{enum_str}"
                 )
-        if entity.thresholds:
+        if hasattr(entity, "thresholds"):
             lines.append("  Thresholds:")
             for t in entity.thresholds:
                 unit_str = t.unit or ""
