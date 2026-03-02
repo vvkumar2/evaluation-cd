@@ -30,7 +30,7 @@ def format_entities_detailed(
                 lines.append(
                     f"  - {field.name} ({field.type}): {field.description}{enum_str}"
                 )
-        if getattr(entity, "thresholds", None):
+        if entity.thresholds:
             lines.append("  Thresholds:")
             for t in entity.thresholds:
                 unit_str = t.unit or ""
@@ -42,6 +42,7 @@ def format_tool(tool) -> str:
     """Format a single tool with its parameters."""
     parts = [f"- {tool.name}: {tool.description}"]
     if tool.parameters:
+        parts.append("  Parameters:")
         for p in tool.parameters:
             parts.append(f"  - {p.name} ({p.type}): {p.description}")
     return "\n".join(parts)

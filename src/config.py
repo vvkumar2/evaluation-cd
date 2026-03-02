@@ -11,6 +11,7 @@ SCHEMA_FILE = "schema.yml"
 
 # LLM model names per pipeline stage
 EXTRACTION_MODEL = "gpt-4o-mini"
+ENRICHER_MODEL = "gpt-5-mini"
 GENERATION_MODEL = "gpt-4o-mini"
 EVALUATION_MODEL = "gpt-4o-mini"
 

@@ -10,7 +10,7 @@ from ..schemas.prompt_schema import (
 )
 from ..schemas.entity_schema import EntitySchemaList
 from ..schemas.tool_schema import EnrichedToolSchemaList
-from ...config import EXTRACTION_MODEL
+from ...config import ENRICHER_MODEL
 from ...utils import format_entities_detailed, format_tools
 from ..templates import RULES_STRUCTURING_PROMPT
 
@@ -55,13 +55,7 @@ class RuleEnricher:
         rules_text = self._format_rules(intent)
         outcomes_text = self._format_outcomes(intent)
         slots_text = self._format_slots(intent)
-
-        # Separate internal vs external tools so the LLM knows which can appear in expected_tool_calls
-        external_set = set(external_tool_names)
-        internal_tools = EnrichedToolSchemaList(
-            tools=[t for t in tools.tools if t.name not in external_set]
-        )
-        tools_text = format_tools(internal_tools)
+        tools_text = format_tools(tools)
         external_tools_text = (
             ", ".join(external_tool_names) if external_tool_names else "none"
         )
@@ -78,7 +72,7 @@ class RuleEnricher:
         )
 
         response = self.client.responses.parse(
-            model=EXTRACTION_MODEL,
+            model=ENRICHER_MODEL,
             input=[{"role": "user", "content": llm_prompt}],
             text_format=StructuredRulesResponse,
         )

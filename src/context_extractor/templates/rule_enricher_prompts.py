@@ -50,7 +50,7 @@ Available outcomes:
 Entity definitions:
 {entities_text}
 
-Internal agent tools:
+All agent tools:
 {tools_text}
 
 External tools (MCP):
