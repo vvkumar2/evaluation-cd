@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import traceback
+from importlib.metadata import version
 from pathlib import Path
 import click
 import yaml
@@ -13,15 +14,17 @@ from ..context_extractor.agent_loader import load_agent
 from ..context_extractor.schemas.prompt_schema import StructuredSystemPromptExtraction
 from ..context_extractor.parsers.entity_parser import parse_entity_schema
 from ..test_generator.generator import TestCaseGenerator
+from ..test_generator.schemas import GeneratedTestSuite
 from ..test_runner.runner import TestRunner
+from ..test_runner.schemas import TestRunReport
 from ..test_runner.html_reporter import generate_html_report
-from ..config import cfg, init as init_config
+from ..config import cfg, init as init_config, MIN_PASS_RATE, LLM_TIMEOUT
 
 console = Console()
 
 
 @click.group()
-@click.version_option(version="0.3.0")
+@click.version_option(version=version("agent-eval"))
 def cli():
     """Entry point for AgentEval CLI."""
     load_dotenv()
@@ -64,7 +67,12 @@ def run_pipeline(agent_dir):
         entity_schema_data = parse_entity_schema(entity_schema_raw)
         external_tools = entity_schema_raw.get("external_tools", [])
         generation_file, _ = _run_generation_stage(
-            agent_name, output_dict, entity_schema_data, client, external_tools
+            agent_path,
+            agent_name,
+            output_dict,
+            entity_schema_data,
+            client,
+            external_tools,
         )
         console.print(
             f"  [dim]Generation took {_fmt_duration(time.monotonic() - stage_start)}[/dim]"
@@ -80,12 +88,12 @@ def run_pipeline(agent_dir):
         )
 
         # Write GitHub Actions outputs if running in CI
-        _write_github_outputs(report, agent_name)
+        _write_github_outputs(report, agent_path, agent_name)
 
-        if report.pass_rate < 1.0:
+        if report.pass_rate < MIN_PASS_RATE:
             console.print(
                 f"\n[red]Pipeline failed:[/red] "
-                f"pass rate {report.pass_rate*100:.0f}% < 100%"
+                f"pass rate {report.pass_rate*100:.0f}% < {MIN_PASS_RATE*100:.0f}%"
             )
             sys.exit(1)
 
@@ -116,6 +124,7 @@ def extract(agent_dir):
     agent_name = agent_path.name
     init_config(agent_path)
 
+    start = time.monotonic()
     try:
         client = _init_llm_client()
         _run_extraction_stage(agent_path, agent_name, client)
@@ -123,6 +132,10 @@ def extract(agent_dir):
         console.print(f"\n[red]Extraction failed:[/red] {e}")
         traceback.print_exc()
         sys.exit(1)
+    finally:
+        console.print(
+            f"\n[dim]Completed in {_fmt_duration(time.monotonic() - start)}[/dim]"
+        )
 
 
 @cli.command()
@@ -147,6 +160,7 @@ def generate_tests(extraction_file, entity_schema):
     extraction_path = Path(extraction_file)
     entity_schema_path = Path(entity_schema)
 
+    start = time.monotonic()
     try:
         client = _init_llm_client()
         with open(extraction_path) as f:
@@ -158,13 +172,23 @@ def generate_tests(extraction_file, entity_schema):
         external_tools = entity_schema_raw.get("external_tools", [])
 
         agent_name = extraction_data.get("agent_name", extraction_path.stem)
+        agent_path = entity_schema_path.parent
         _run_generation_stage(
-            agent_name, extraction_data, entity_schema_obj, client, external_tools
+            agent_path,
+            agent_name,
+            extraction_data,
+            entity_schema_obj,
+            client,
+            external_tools,
         )
     except Exception as e:
         console.print(f"\n[red]Test generation failed:[/red] {e}")
         traceback.print_exc()
         sys.exit(1)
+    finally:
+        console.print(
+            f"\n[dim]Completed in {_fmt_duration(time.monotonic() - start)}[/dim]"
+        )
 
 
 @cli.command()
@@ -190,21 +214,25 @@ def run_tests(test_file, agent_dir):
     agent_path = Path(agent_dir)
     init_config(agent_path)
 
+    start = time.monotonic()
     try:
         client = _init_llm_client()
         _run_execution_stage(agent_path, test_path, client)
-
     except Exception as e:
         console.print(f"\n[red]Test run failed:[/red] {e}")
         traceback.print_exc()
         sys.exit(1)
+    finally:
+        console.print(
+            f"\n[dim]Completed in {_fmt_duration(time.monotonic() - start)}[/dim]"
+        )
 
 
 def _run_extraction_stage(
-    agent_path: Path, agent_name: str, client
+    agent_path: Path, agent_name: str, client: OpenAI
 ) -> tuple[Path, dict]:
     """Run extraction stage and return extraction file path and output dict."""
-    extraction_file = Path("tests/extraction") / f"{agent_name}_extraction.yml"
+    extraction_file = agent_path / "tests/extraction" / f"{agent_name}_extraction.yml"
 
     with console.status("[dim]Loading agent..."):
         tools_schema, entity_schema, system_prompt = load_agent(agent_path)
@@ -217,7 +245,7 @@ def _run_extraction_stage(
 
     with console.status("[dim]Extracting intents and rules..."):
         extractor = AgentTestSpaceExtractor(llm_client=client)
-        _, _, _, structured_prompt_extraction, _ = extractor.extract_all(
+        _, _, _, structured_prompt_extraction = extractor.extract_all(
             tools_schema=tools_schema,
             entity_schema=entity_schema,
             system_prompt=system_prompt,
@@ -245,14 +273,17 @@ def _run_extraction_stage(
 
 
 def _run_generation_stage(
+    agent_path: Path,
     agent_name: str,
     output_dict: dict,
     entity_schema_data: object,
-    client,
+    client: OpenAI,
     external_tools: list[dict] | None = None,
-) -> tuple[Path, object]:
+) -> tuple[Path, GeneratedTestSuite]:
     """Run test generation stage and return generation file path and test suite."""
-    generation_file = Path("tests/generation") / f"{agent_name}_extraction_tests.yml"
+    generation_file = (
+        agent_path / "tests/generation" / f"{agent_name}_extraction_tests.yml"
+    )
 
     with console.status("[dim]Generating test cases..."):
         extraction = StructuredSystemPromptExtraction.model_validate(output_dict)
@@ -279,13 +310,18 @@ def _run_generation_stage(
 
 
 def _run_execution_stage(
-    agent_path: Path, generation_file: Path, client, agent_name: str = None
-) -> tuple[Path, object]:
+    agent_path: Path,
+    generation_file: Path,
+    client: OpenAI,
+    agent_name: str | None = None,
+) -> tuple[Path, TestRunReport]:
     """Run test execution stage and return report file path and report."""
     if agent_name is not None:
-        report_file = Path("tests/runner") / f"{agent_name}_extraction_tests_report.yml"
+        report_file = (
+            agent_path / "tests/runner" / f"{agent_name}_extraction_tests_report.yml"
+        )
     else:
-        report_file = Path("tests/runner") / f"{generation_file.stem}_report.yml"
+        report_file = agent_path / "tests/runner" / f"{generation_file.stem}_report.yml"
 
     with console.status("[dim]Running tests..."):
         runner = TestRunner(llm_client=client)
@@ -312,16 +348,20 @@ def _run_execution_stage(
     return report_file, report
 
 
-def _write_github_outputs(report, agent_name: str | None = None):
+def _write_github_outputs(
+    report: TestRunReport, agent_path: Path, agent_name: str | None = None
+):
     """Write pass_rate and html_report to $GITHUB_OUTPUT if running in CI."""
     github_output = os.environ.get("GITHUB_OUTPUT")
     if not github_output:
         return
 
     if agent_name is not None:
-        html_file = Path("tests/runner") / f"{agent_name}_extraction_tests_report.html"
+        html_file = (
+            agent_path / "tests/runner" / f"{agent_name}_extraction_tests_report.html"
+        )
     else:
-        html_file = Path("tests/runner") / "report.html"
+        html_file = agent_path / "tests/runner" / "report.html"
 
     with open(github_output, "a") as f:
         f.write(f"pass_rate={report.pass_rate*100:.0f}\n")
@@ -334,7 +374,7 @@ def _write_github_outputs(report, agent_name: str | None = None):
 def _init_llm_client():
     """Initialize OpenAI client."""
     try:
-        return OpenAI(timeout=200)
+        return OpenAI(timeout=LLM_TIMEOUT)
     except Exception as e:
         console.print(f"[red]Failed to initialize OpenAI:[/red] {e}")
         console.print("[yellow]Hint:[/yellow] Set OPENAI_API_KEY environment variable")

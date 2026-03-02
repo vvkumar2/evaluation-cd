@@ -9,18 +9,14 @@ from .schemas import TestRunReport
 
 def generate_html_report(report: TestRunReport, output_path: Path) -> None:
     """Generate an HTML report from test results."""
-    all_results = report.results.results
-    failed_tests = [r for r in all_results if not r.passed]
-    passed_tests = [r for r in all_results if r.passed]
-
-    html_content = _generate_html(report, failed_tests, passed_tests)
+    html_content = _generate_html(report)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
         f.write(html_content)
 
 
-def _generate_html(report: TestRunReport, failed_tests, passed_tests) -> str:
+def _generate_html(report: TestRunReport) -> str:
     timestamp = datetime.now().strftime("%b %d, %Y at %H:%M")
     pass_pct = report.pass_rate * 100
 
@@ -339,6 +335,7 @@ def _generate_html(report: TestRunReport, failed_tests, passed_tests) -> str:
         }}
         .test-status-bar.pass {{ background: var(--green); }}
         .test-status-bar.fail {{ background: var(--red); }}
+        .test-status-bar.error {{ background: var(--amber); }}
 
         .test-row-content {{
             flex: 1;
@@ -733,9 +730,12 @@ def _render_intent_groups(all_results) -> str:
         # Sort within group: failed first, then by score ascending
         tests.sort(key=lambda t: (t.passed, t.score))
 
-        tests_html = "\n".join(
-            _render_test(t, "pass" if t.passed else "fail") for t in tests
-        )
+        def _status_class(t):
+            if getattr(t, "error", False):
+                return "error"
+            return "pass" if t.passed else "fail"
+
+        tests_html = "\n".join(_render_test(t, _status_class(t)) for t in tests)
 
         fail_indicator = ""
         if failed > 0:
@@ -789,23 +789,6 @@ def _render_score_distribution(score_dist, max_count) -> str:
             f"</div>"
         )
     return "\n".join(bars)
-
-
-def _render_tests_section(title: str, tests, status_class: str) -> str:
-    """Render a section of tests with a title."""
-    if not tests:
-        return ""
-    tests_html = "\n".join(_render_test(t, status_class) for t in tests)
-    return f"""
-        <div class="intent-group">
-            <div class="intent-header">
-                <span class="intent-name">{_escape_html(title)}</span>
-                <span class="intent-meta">{len(tests)}</span>
-            </div>
-            <div class="test-list">
-                {tests_html}
-            </div>
-        </div>"""
 
 
 def _render_test(test, status_class: str) -> str:

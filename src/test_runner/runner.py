@@ -3,9 +3,11 @@
 import asyncio
 import time
 from pathlib import Path
+
 import yaml
+from openai import OpenAI
 from ..test_generator.schemas import GeneratedTestSuite
-from ..config import cfg
+from ..config import cfg, PASS_SCORE_THRESHOLD
 from .evaluator import BehaviorEvaluator
 from .executor import AgentExecutor
 from .schemas import TestResult, TestResultList, TestRunReport
@@ -14,13 +16,7 @@ from .schemas import TestResult, TestResultList, TestRunReport
 class TestRunner:
     """Run tests against an agent and generate a report."""
 
-    def __init__(self, llm_client=None):
-        """
-        Initialize test runner.
-
-        Args:
-            llm_client: OpenAI client for LLM evaluation
-        """
+    def __init__(self, llm_client: OpenAI):
         self.llm_client = llm_client
         self.evaluator = BehaviorEvaluator(llm_client)
         self._external_tool_names = set()
@@ -86,7 +82,11 @@ class TestRunner:
 
     async def _run_single_test(self, executor: AgentExecutor, test_case) -> TestResult:
         """Run a single test case and evaluate result."""
-        expected_tool_calls = getattr(test_case, "expected_tool_calls", []) or []
+        expected_tool_calls = [
+            t
+            for t in (getattr(test_case, "expected_tool_calls", []) or [])
+            if t in self._external_tool_names
+        ]
         input_message = test_case.input.message
         input_context = test_case.input.context or {}
         backend_state = test_case.backend_state
@@ -106,8 +106,7 @@ class TestRunner:
                 actual_tool_calls=actual_tool_calls,
             )
 
-            # Determine pass/fail (7 or higher is passing)
-            passed = score >= 7
+            passed = score >= PASS_SCORE_THRESHOLD
 
             return TestResult(
                 test_id=test_case.test_id,
@@ -137,6 +136,7 @@ class TestRunner:
                 output="",
                 expected_tool_calls=expected_tool_calls,
                 actual_tool_calls=[],
+                error=True,
             )
 
     def _generate_report(

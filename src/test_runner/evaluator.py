@@ -1,6 +1,8 @@
 """Evaluate agent behavior against expected outcomes using LLM."""
 
+from openai import OpenAI
 from pydantic import BaseModel, Field
+from ..config import EVALUATION_MODEL
 
 
 class EvaluationResult(BaseModel):
@@ -43,37 +45,17 @@ Return a JSON object:
 class BehaviorEvaluator:
     """Evaluate if agent output matches expected behavior using LLM."""
 
-    def __init__(self, llm_client=None):
-        """
-        Initialize evaluator.
-
-        Args:
-            llm_client: OpenAI client for LLM calls
-        """
+    def __init__(self, llm_client: OpenAI):
         self.client = llm_client
 
     def evaluate(
         self,
         actual_output: str,
         expected_behavior: str,
-        expected_tool_calls: list[str] = None,
-        actual_tool_calls: list[str] = None,
+        expected_tool_calls: list[str] | None = None,
+        actual_tool_calls: list[str] | None = None,
     ) -> tuple[int, str]:
-        """
-        Score agent output based on expected behavior and tool calls.
-
-        Args:
-            actual_output: The agent's actual response
-            expected_behavior: What the agent should have done
-            expected_tool_calls: Tool names the agent should have called
-            actual_tool_calls: Tool names the agent actually called
-
-        Returns:
-            Tuple of (score, reasoning) where score is 1-10
-        """
-        if not self.client:
-            raise RuntimeError("LLM client not initialized")
-
+        """Score agent output against expected behavior. Returns (score, reasoning)."""
         prompt = BEHAVIOR_EVALUATION_PROMPT.format(
             expected_behavior=expected_behavior,
             actual_output=actual_output,
@@ -87,15 +69,11 @@ class BehaviorEvaluator:
             ),
         )
 
-        result = self._call_llm(prompt)
-        return result.score, result.reasoning
-
-    def _call_llm(self, prompt: str) -> EvaluationResult:
-        """Call LLM with structured output parsing."""
         response = self.client.responses.parse(
-            model="gpt-4o-mini",
+            model=EVALUATION_MODEL,
             input=[{"role": "user", "content": prompt}],
             text_format=EvaluationResult,
             temperature=0,
         )
-        return response.output_parsed
+        result = response.output_parsed
+        return result.score, result.reasoning

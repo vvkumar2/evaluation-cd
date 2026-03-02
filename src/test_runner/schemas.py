@@ -23,6 +23,9 @@ class TestResult(BaseModel):
         description="Tools the agent should have called"
     )
     actual_tool_calls: list[str] = Field(description="Tools the agent actually called")
+    error: bool = Field(
+        default=False, description="True if test execution threw an exception"
+    )
 
 
 class TestResultList(BaseModel):

@@ -8,6 +8,7 @@ RULES_STRUCTURING_PROMPT = """Convert natural language rules to structured JSON 
 3. Use concrete threshold values — no dynamic references like `get_refund_window(tier)`
 4. Cover ALL outcomes — every outcome needs at least one rule path
 5. For enum fields, cover ALL possible values exhaustively
+6. expected_tool_calls MUST ONLY contain names from the "External tools (MCP)" list
 
 ## OPERATORS
 eq, ne, lt, lte, gt, gte, in, not_in, exists, missing
@@ -49,7 +50,7 @@ Available outcomes:
 Entity definitions:
 {entities_text}
 
-Available tools:
+All agent tools:
 {tools_text}
 
 External tools (MCP):

@@ -1,8 +1,13 @@
 """Generate test cases from extracted agent specifications using LLM."""
 
 import logging
+
+from openai import OpenAI
+
 from ..context_extractor.schemas.prompt_schema import StructuredSystemPromptExtraction
 from ..context_extractor.schemas.entity_schema import EntitySchemaList
+from ..config import GENERATION_MODEL
+from ..utils import format_entities_detailed
 from .schemas import GeneratedTestCase, GeneratedTestSuite, TestCaseLLMResponse
 from .prompts import TEST_CASE_GENERATION_PROMPT
 
@@ -12,13 +17,7 @@ logger = logging.getLogger(__name__)
 class TestCaseGenerator:
     """Generate runnable test cases from extracted intents using LLM."""
 
-    def __init__(self, llm_client=None):
-        """
-        Initialize generator.
-
-        Args:
-            llm_client: OpenAI client for LLM calls
-        """
+    def __init__(self, llm_client: OpenAI):
         self.client = llm_client
 
     def generate_test_suite(
@@ -29,9 +28,6 @@ class TestCaseGenerator:
         external_tools: list[dict] | None = None,
     ) -> GeneratedTestSuite:
         """Generate complete test suite from extracted specifications."""
-        if not self.client:
-            raise RuntimeError("LLM client not initialized")
-
         test_cases = []
 
         for intent in extraction.intents:
@@ -60,13 +56,13 @@ class TestCaseGenerator:
         intent_description: str,
         rule,
         entities: EntitySchemaList,
-    ) -> GeneratedTestCase:
+    ) -> GeneratedTestCase | None:
         """Generate a single test case using LLM."""
         # Format conditions for LLM
         conditions_text = self._format_conditions(rule.conditions)
 
         # Format entity schema for LLM
-        entities_schema_text = self._format_entities_schema(entities)
+        entities_schema_text = format_entities_detailed(entities)
 
         # Build prompt
         prompt = TEST_CASE_GENERATION_PROMPT.format(
@@ -85,7 +81,7 @@ class TestCaseGenerator:
 
         # Call LLM with structured output
         response = self.client.responses.parse(
-            model="gpt-4o-mini",
+            model=GENERATION_MODEL,
             input=[{"role": "user", "content": prompt}],
             text_format=TestCaseLLMResponse,
             temperature=0,
@@ -120,21 +116,6 @@ class TestCaseGenerator:
         for condition in conditions:
             line = f"- {condition.field} {condition.operator} {condition.value}"
             lines.append(line)
-        return "\n".join(lines)
-
-    def _format_entities_schema(self, entities: EntitySchemaList) -> str:
-        """Format entity schema for LLM."""
-        lines = []
-        for entity in entities.entities:
-            lines.append(f"- {entity.name}: {entity.description}")
-
-            if entity.fields:
-                for field in entity.fields:
-                    enum_str = f" (enum: {field.enum})" if field.enum else ""
-                    lines.append(
-                        f"    - {field.name} ({field.type}): {field.description}{enum_str}"
-                    )
-
         return "\n".join(lines)
 
     def _validate_and_fix_backend_state(
@@ -182,8 +163,7 @@ class TestCaseGenerator:
                 for field in entity.fields:
                     if (
                         field.name not in instance
-                        and hasattr(field, "default")
-                        and field.default is not None
+                        and getattr(field, "default", None) is not None
                     ):
                         instance[field.name] = field.default
 

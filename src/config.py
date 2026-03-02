@@ -9,6 +9,17 @@ import yaml
 
 SCHEMA_FILE = "schema.yml"
 
+# LLM model names per pipeline stage
+EXTRACTION_MODEL = "gpt-4o-mini"
+ENRICHER_MODEL = "gpt-5-mini"
+GENERATION_MODEL = "gpt-4o-mini"
+EVALUATION_MODEL = "gpt-4o-mini"
+
+# Pipeline thresholds
+PASS_SCORE_THRESHOLD = 7
+MIN_PASS_RATE = 1.0
+LLM_TIMEOUT = 200
+
 _REQUIRED_AGENT_KEYS = [
     "tools_file",
     "entry_file",
@@ -39,15 +50,15 @@ class AgentConfig:
 class BackendConfig:
     """Base backend configuration."""
 
-    def __init__(self, type: str):
-        self.type = type
+    def __init__(self, backend_type: str):
+        self.type = backend_type
 
 
 class SqliteBackendConfig(BackendConfig):
     """SQLite-specific backend configuration."""
 
     def __init__(self, db_engine_attr: str):
-        super().__init__(type="sqlite")
+        super().__init__(backend_type="sqlite")
         self.db_engine_attr = db_engine_attr
 
 

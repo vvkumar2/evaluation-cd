@@ -1,7 +1,10 @@
 import ast
+import logging
 import re
 from pathlib import Path
-from typing import Optional
+
+from openai import OpenAI
+
 from ..schemas.tool_schema import (
     ToolSchemaList,
     EnrichedToolSchema,
@@ -18,18 +21,21 @@ from ..schemas.entity_schema import (
     EntityThreshold,
     EnrichedEntityThresholdList,
 )
-from ..schemas.prompt_schema import SystemPromptExtraction
+from ...config import EXTRACTION_MODEL
+from ...utils import format_entities_brief, format_tool
 from ..templates import (
     TOOL_RETURN_SCHEMA_PROMPT,
     CODE_RULES_EXTRACTION_PROMPT,
     ENTITY_THRESHOLDS_EXTRACTION_PROMPT,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class AgentEnricher:
     """Enriches tools and entities using LLM with full agent context from tools, entities, and system prompt."""
 
-    def __init__(self, llm_client=None):
+    def __init__(self, llm_client: OpenAI):
         self.client = llm_client
 
     def enrich_all(
@@ -51,7 +57,7 @@ class AgentEnricher:
         tools_py_path: Path | str,
     ) -> tuple[EnrichedToolSchemaList, ToolCodeRuleList]:
         """Enrich tools with return schemas and code rules using LLM, processing one tool at a time."""
-        entities_text = self._format_entities(entities)
+        entities_text = format_entities_brief(entities)
         enriched_list = []
         code_rules_list = []
         for tool in tools.tools:
@@ -72,7 +78,7 @@ class AgentEnricher:
         tool_code: str,
         entities_text: str,
     ) -> EnrichedToolSchema:
-        tool_text = self._format_tool(tool)
+        tool_text = format_tool(tool)
         code_section = (
             ""
             if not tool_code
@@ -86,7 +92,7 @@ class AgentEnricher:
         )
 
         response = self.client.responses.parse(
-            model="gpt-4o-mini",
+            model=EXTRACTION_MODEL,
             input=[{"role": "user", "content": llm_return_prompt}],
             text_format=EnrichedToolReturnItem,
             temperature=0,
@@ -112,7 +118,7 @@ class AgentEnricher:
         business_logic_code = self._extract_business_logic_code(
             tool_code, tools_py_path
         )
-        tool_text = self._format_tool(tool)
+        tool_text = format_tool(tool)
         all_code = (
             tool_code
             if not business_logic_code
@@ -125,7 +131,7 @@ class AgentEnricher:
         )
 
         response = self.client.responses.parse(
-            model="gpt-4o-mini",
+            model=EXTRACTION_MODEL,
             input=[{"role": "user", "content": llm_code_rules_prompt}],
             text_format=ToolCodeRuleList,
             temperature=0,
@@ -163,7 +169,7 @@ class AgentEnricher:
         self,
         tool_code: str,
         tools_py_path: Path | str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Extract code from business logic modules that the tool imports and uses."""
         tools_py_path = Path(tools_py_path)
         agent_dir = tools_py_path.parent
@@ -203,6 +209,9 @@ class AgentEnricher:
             )
 
         except Exception:
+            logger.warning(
+                "Failed to extract business logic from %s", tools_py_path, exc_info=True
+            )
             return None
 
     def _extract_business_logic_files(
@@ -237,7 +246,7 @@ class AgentEnricher:
                 )
         return business_logic_code_parts
 
-    def _extract_constants_from_file(self, file_path: Path) -> Optional[str]:
+    def _extract_constants_from_file(self, file_path: Path) -> str | None:
         """Extract module-level constants (uppercase variable assignments) from a Python file."""
         try:
             source_code = file_path.read_text()
@@ -254,11 +263,7 @@ class AgentEnricher:
                         "class" if isinstance(node, ast.ClassDef) else "function"
                     )
                     start = node.lineno
-                    end = (
-                        node.end_lineno
-                        if hasattr(node, "end_lineno") and node.end_lineno
-                        else start
-                    )
+                    end = node.end_lineno or start
                     for line_num in range(start, end + 1):
                         scope_map[line_num] = scope_type
                     # Visit children with this scope as parent
@@ -288,12 +293,7 @@ class AgentEnricher:
                                 ):
                                     start_line = node.lineno - 1
                                     # Find the end of the assignment
-                                    end_line = (
-                                        node.end_lineno
-                                        if hasattr(node, "end_lineno")
-                                        and node.end_lineno
-                                        else node.lineno
-                                    )
+                                    end_line = node.end_lineno or node.lineno
 
                                     # Include comments before the constant if they're on adjacent lines
                                     comment_start = start_line
@@ -316,11 +316,14 @@ class AgentEnricher:
 
             return "\n".join(extracted_constants) if extracted_constants else None
         except Exception:
+            logger.warning(
+                "Failed to extract constants from %s", file_path, exc_info=True
+            )
             return None
 
     def _extract_methods_from_file(
         self, file_path: Path, method_names: list[str]
-    ) -> Optional[str]:
+    ) -> str | None:
         """Extract specific method definitions from a Python file."""
         try:
             source_code = file_path.read_text()
@@ -331,11 +334,7 @@ class AgentEnricher:
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef) and node.name in method_names:
                     start_line = node.lineno - 1
-                    end_line = (
-                        node.end_lineno
-                        if hasattr(node, "end_lineno") and node.end_lineno
-                        else None
-                    )
+                    end_line = node.end_lineno
 
                     if end_line is None:
                         # Find next function or class
@@ -358,6 +357,12 @@ class AgentEnricher:
 
             return "\n\n".join(extracted_methods) if extracted_methods else None
         except Exception:
+            logger.warning(
+                "Failed to extract methods %s from %s",
+                method_names,
+                file_path,
+                exc_info=True,
+            )
             return None
 
     def _enrich_entities(
@@ -366,46 +371,23 @@ class AgentEnricher:
         system_prompt: str,
     ) -> EnrichedEntitySchemaList:
         """Enrich entities with thresholds using LLM."""
-        entities_text = self._format_entities(entities)
+        entities_text = format_entities_brief(entities)
 
         llm_prompt = ENTITY_THRESHOLDS_EXTRACTION_PROMPT.format(
             entities_text=entities_text,
             system_prompt=system_prompt,
         )
         response = self.client.responses.parse(
-            model="gpt-4o-mini",
+            model=EXTRACTION_MODEL,
             input=[{"role": "user", "content": llm_prompt}],
             text_format=EnrichedEntityThresholdList,
             temperature=0,
         )
-        enriched = self._build_enriched_entities(response.output_parsed, entities)
-        return enriched
-
-    def _format_tool(self, tool: ToolSchema) -> str:
-        tool_text = f"- {tool.name}: {tool.description}"
-        if tool.parameters:
-            params_text = "\n".join(
-                f"- {p.name} ({p.type}): {p.description}" for p in tool.parameters
-            )
-            tool_text += f"\n  Parameters:\n{params_text}"
-        return tool_text
-
-    def _format_entities(self, entities: EntitySchemaList) -> str:
-        """Format entities for LLM input."""
-        return "\n".join(
-            f"- {entity.name}: {entity.description}" for entity in entities.entities
-        )
-
-    def _format_intents(self, prompt: SystemPromptExtraction) -> str:
-        """Format intents for LLM input."""
-        return "\n".join(
-            f"- {intent.name}: {intent.description}, workflow: {' -> '.join(intent.workflow)}"
-            for intent in prompt.intents
-        )
+        return self._build_enriched_entities(response.output_parsed, entities)
 
     def _extract_tool_code(
         self, tool_name: str, tools_py_path: Path | str
-    ) -> Optional[str]:
+    ) -> str | None:
         """Extract the code for a specific tool function from tools.py file, including decorators."""
         tools_py_path = Path(tools_py_path)
         if not tools_py_path.exists():
@@ -419,11 +401,7 @@ class AgentEnricher:
                 if isinstance(node, ast.FunctionDef) and node.name == tool_name:
                     # Get the line numbers for this function
                     start_line = node.lineno - 1  # 0-indexed (convert to 0-based)
-                    end_line = (
-                        node.end_lineno
-                        if hasattr(node, "end_lineno") and node.end_lineno
-                        else None
-                    )
+                    end_line = node.end_lineno
                     # Find the end of the function
                     if end_line is None:
                         for i in range(start_line + 1, len(lines)):
@@ -444,11 +422,16 @@ class AgentEnricher:
                     return "\n".join(function_lines)
             return None
         except Exception:
+            logger.warning(
+                "AST extraction failed for tool '%s', falling back to regex",
+                tool_name,
+                exc_info=True,
+            )
             return self._extract_tool_code_regex(tool_name, tools_py_path)
 
     def _extract_tool_code_regex(
         self, tool_name: str, tools_py_path: Path
-    ) -> Optional[str]:
+    ) -> str | None:
         source_code = tools_py_path.read_text()
         # Pattern to match function definition with decorators
         pattern = rf"(@\w+.*?\n)*def\s+{re.escape(tool_name)}\s*\([^)]*\)\s*->[^:]*:.*?(?=\n(?:@\w+|def\s+\w+|class\s+\w+|\Z))"
