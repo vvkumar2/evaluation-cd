@@ -1,4 +1,3 @@
-from typing import Any
 from pydantic import BaseModel, Field
 
 
@@ -7,7 +6,7 @@ class StructuredCondition(BaseModel):
 
     field: str
     operator: str
-    value: Any
+    value: str | int | float | bool | None
 
 
 class StructuredIntentRule(BaseModel):
@@ -69,3 +68,16 @@ class StructuredSystemPromptExtraction(BaseModel):
     agent_name: str
     agent_role: str
     intents: list[StructuredIntent]
+
+
+class IntentListResponse(BaseModel):
+    intents: list[Intent]
+
+
+class StructuredRulesResponse(BaseModel):
+    rules: list[StructuredIntentRule]
+
+
+class AgentIdentityResponse(BaseModel):
+    name: str
+    role: str

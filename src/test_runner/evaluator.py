@@ -1,6 +1,12 @@
 """Evaluate agent behavior against expected outcomes using LLM."""
 
-import json
+from pydantic import BaseModel, Field
+
+
+class EvaluationResult(BaseModel):
+    score: int = Field(ge=1, le=10, description="Score from 1-10")
+    reasoning: str = Field(description="Explanation for the score")
+
 
 BEHAVIOR_EVALUATION_PROMPT = """You are evaluating whether an agent's response matches the expected behavior.
 
@@ -81,44 +87,15 @@ class BehaviorEvaluator:
             ),
         )
 
-        response = self._call_llm(prompt)
-        score, reasoning = self._parse_evaluation_response(response)
+        result = self._call_llm(prompt)
+        return result.score, result.reasoning
 
-        return score, reasoning
-
-    def _call_llm(self, prompt: str) -> str:
-        """Call LLM and extract JSON from response."""
-        response = self.client.chat.completions.create(
+    def _call_llm(self, prompt: str) -> EvaluationResult:
+        """Call LLM with structured output parsing."""
+        response = self.client.responses.parse(
             model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
+            input=[{"role": "user", "content": prompt}],
+            text_format=EvaluationResult,
             temperature=0,
         )
-        content = response.choices[0].message.content
-
-        # Extract JSON from markdown code blocks if present
-        if "```json" in content:
-            start = content.find("```json") + 7
-            end = content.find("```", start)
-            if end > start:
-                content = content[start:end].strip()
-        elif "```" in content:
-            start = content.find("```") + 3
-            end = content.find("```", start)
-            if end > start:
-                content = content[start:end].strip()
-
-        return content
-
-    def _parse_evaluation_response(self, response: str) -> tuple[int, str]:
-        """Parse LLM evaluation response."""
-        try:
-            data = json.loads(response)
-            score = int(data.get("score", 5))
-            reasoning = data.get("reasoning", "No reasoning provided")
-            # Clamp score to 1-10
-            score = max(1, min(10, score))
-            return score, reasoning
-        except (json.JSONDecodeError, ValueError, TypeError) as e:
-            raise ValueError(
-                f"Failed to parse evaluation response: {e}\n{response}"
-            ) from e
+        return response.output_parsed

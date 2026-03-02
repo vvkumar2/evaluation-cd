@@ -1,10 +1,9 @@
 """Generate test cases from extracted agent specifications using LLM."""
 
-import json
 import logging
 from ..context_extractor.schemas.prompt_schema import StructuredSystemPromptExtraction
 from ..context_extractor.schemas.entity_schema import EntitySchemaList
-from .schemas import GeneratedTestCase, GeneratedTestSuite, TestInput
+from .schemas import GeneratedTestCase, GeneratedTestSuite, TestCaseLLMResponse
 from .prompts import TEST_CASE_GENERATION_PROMPT
 
 logger = logging.getLogger(__name__)
@@ -84,15 +83,19 @@ class TestCaseGenerator:
             entities_schema=entities_schema_text,
         )
 
-        # Call LLM
-        response = self._call_llm(prompt)
-
-        # Parse response
-        test_case_dict = self._parse_test_case_response(response)
+        # Call LLM with structured output
+        response = self.client.responses.parse(
+            model="gpt-4o-mini",
+            input=[{"role": "user", "content": prompt}],
+            text_format=TestCaseLLMResponse,
+            temperature=0,
+        )
+        result = response.output_parsed
 
         # Validate and fix backend state
+        backend_state_dict = result.get_backend_state_dict()
         backend_state, valid = self._validate_and_fix_backend_state(
-            test_case_dict["backend_state"], entities
+            backend_state_dict, entities
         )
 
         if not valid:
@@ -100,15 +103,15 @@ class TestCaseGenerator:
 
         # Convert to GeneratedTestCase
         return GeneratedTestCase(
-            test_id=test_case_dict["test_id"],
+            test_id=result.test_id,
             intent_name=intent_name,
-            description=test_case_dict.get("description", rule.description),
+            description=result.description or rule.description,
             rule_conditions=[c.model_dump() for c in rule.conditions],
             backend_state=backend_state,
-            input=TestInput(**test_case_dict["input"]),
+            input=result.input.to_test_input(),
             expected_behavior=rule.expected_behavior,
             expected_tool_calls=rule.expected_tool_calls,
-            category=test_case_dict.get("category", "happy_path"),
+            category=result.category,
         )
 
     def _format_conditions(self, conditions) -> str:
@@ -133,39 +136,6 @@ class TestCaseGenerator:
                     )
 
         return "\n".join(lines)
-
-    def _call_llm(self, prompt: str) -> str:
-        """Call LLM and extract JSON from response."""
-        response = self.client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0,
-        )
-        content = response.choices[0].message.content
-
-        # Extract JSON from markdown code blocks if present
-        if "```json" in content:
-            start = content.find("```json") + 7
-            end = content.find("```", start)
-            if end > start:
-                content = content[start:end].strip()
-        elif "```" in content:
-            start = content.find("```") + 3
-            end = content.find("```", start)
-            if end > start:
-                content = content[start:end].strip()
-
-        return content
-
-    def _parse_test_case_response(self, response: str) -> dict:
-        """Parse LLM response into test case dict."""
-        try:
-            data = json.loads(response)
-            return data
-        except json.JSONDecodeError as e:
-            raise ValueError(
-                f"Failed to parse test case response: {e}\n{response}"
-            ) from e
 
     def _validate_and_fix_backend_state(
         self,

@@ -9,7 +9,11 @@ build/
 # Project files
 *.env
 tests/
-.playwright-mcp/*
 
 # SQLite databases
 *.db
+
+# Claude
+CLAUDE.md
+.playwright-mcp/*
+
