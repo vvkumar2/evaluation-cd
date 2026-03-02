@@ -1,11 +1,10 @@
 """Enrich intent rules with structured conditions."""
 
-import json
 from ..schemas.prompt_schema import (
     Intent,
     StructuredIntent,
     StructuredIntentRule,
-    StructuredCondition,
+    StructuredRulesResponse,
 )
 from ..schemas.entity_schema import EntitySchemaList
 from ..schemas.tool_schema import EnrichedToolSchemaList
@@ -71,8 +70,12 @@ class RuleEnricher:
             rules_text=rules_text,
         )
 
-        response = self._call_llm(llm_prompt)
-        return self._parse_rules_response(response)
+        response = self.client.responses.parse(
+            model="gpt-5-mini",
+            input=[{"role": "user", "content": llm_prompt}],
+            text_format=StructuredRulesResponse,
+        )
+        return response.output_parsed.rules
 
     def _format_entities(self, entities: EntitySchemaList) -> str:
         """Format entities with their fields and thresholds."""
@@ -129,57 +132,6 @@ class RuleEnricher:
         for slot in intent.required_slots:
             lines.append(f"- {slot.slot_name} (source: {slot.source})")
         return "\n".join(lines) if lines else "None"
-
-    def _call_llm(self, prompt: str) -> str:
-        """Call LLM and extract JSON."""
-        if not self.client:
-            raise RuntimeError("LLM client not initialized")
-
-        response = self.client.chat.completions.create(
-            model="gpt-5-mini",
-            messages=[{"role": "user", "content": prompt}],
-        )
-        content = response.choices[0].message.content
-
-        if "```json" in content:
-            start = content.find("```json") + 7
-            end = content.find("```", start)
-            if end > start:
-                content = content[start:end].strip()
-        elif "```" in content:
-            start = content.find("```") + 3
-            end = content.find("```", start)
-            if end > start:
-                content = content[start:end].strip()
-
-        return content
-
-    def _parse_rules_response(self, response: str) -> list[StructuredIntentRule]:
-        """Parse LLM response into StructuredIntentRule objects."""
-        data = json.loads(response)
-        rules = []
-
-        for rule_def in data.get("rules", []):
-            conditions = []
-            for cond_def in rule_def.get("conditions", []):
-                condition = StructuredCondition(
-                    field=cond_def.get("field", ""),
-                    operator=cond_def.get("operator", ""),
-                    value=cond_def.get("value"),
-                )
-                conditions.append(condition)
-
-            rule = StructuredIntentRule(
-                id=rule_def.get("id", ""),
-                description=rule_def.get("description", ""),
-                conditions=conditions,
-                outcome=rule_def.get("outcome", ""),
-                expected_behavior=rule_def.get("expected_behavior", ""),
-                expected_tool_calls=rule_def.get("expected_tool_calls", []),
-            )
-            rules.append(rule)
-
-        return rules
 
     def _intent_to_structured(
         self,

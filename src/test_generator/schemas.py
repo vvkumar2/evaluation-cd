@@ -57,6 +57,70 @@ class GeneratedTestCase(BaseModel):
     )
 
 
+class ContextEntry(BaseModel):
+    """A single key-value pair for context."""
+
+    key: str
+    value: str
+
+
+class TestInputLLM(BaseModel):
+    """LLM-compatible input model (no bare dicts)."""
+
+    message: str = Field(description="Message to send to agent")
+    context: Optional[list[ContextEntry]] = Field(
+        default=None, description="Context entries (e.g., customer_id=C123)"
+    )
+
+    def to_test_input(self) -> "TestInput":
+        """Convert to TestInput with dict context."""
+        context_dict = (
+            {entry.key: entry.value for entry in self.context} if self.context else None
+        )
+        return TestInput(message=self.message, context=context_dict)
+
+
+class BackendEntityField(BaseModel):
+    """A single field in a backend entity instance."""
+
+    key: str
+    value: str | int | float | bool | None
+
+
+class BackendEntityInstance(BaseModel):
+    """A single entity instance as a list of fields."""
+
+    fields: list[BackendEntityField]
+
+    def to_dict(self) -> dict:
+        """Convert to plain dict."""
+        return {f.key: f.value for f in self.fields}
+
+
+class BackendEntityGroup(BaseModel):
+    """A group of entity instances under one entity name."""
+
+    entity_name: str
+    instances: list[BackendEntityInstance]
+
+
+class TestCaseLLMResponse(BaseModel):
+    """LLM response fields for a generated test case."""
+
+    test_id: str
+    description: str = ""
+    backend_state: list[BackendEntityGroup]
+    input: TestInputLLM
+    category: str = "happy_path"
+
+    def get_backend_state_dict(self) -> dict[str, list[dict]]:
+        """Convert structured backend state to dict form."""
+        return {
+            group.entity_name: [inst.to_dict() for inst in group.instances]
+            for group in self.backend_state
+        }
+
+
 class GeneratedTestSuite(BaseModel):
     """Complete test suite for an agent."""
 
