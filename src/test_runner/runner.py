@@ -104,6 +104,12 @@ class TestRunner:
                 expected_behavior=test_case.expected_behavior,
                 expected_tool_calls=expected_tool_calls,
                 actual_tool_calls=actual_tool_calls,
+                input_message=input_message,
+                backend_state=(
+                    backend_state.model_dump()
+                    if hasattr(backend_state, "model_dump")
+                    else backend_state
+                ),
             )
 
             passed = score >= PASS_SCORE_THRESHOLD
