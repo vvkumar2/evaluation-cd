@@ -43,7 +43,7 @@ class OrderManager:
     - Gold members get free expedited shipping
     - Platinum members get free express shipping
     - Orders cannot be cancelled once shipped
-    - Order modifications allowed only in PENDING status
+    - Order modifications allowed in PENDING or PROCESSING status
     """
 
     def __init__(self):
@@ -117,7 +117,7 @@ class OrderManager:
         """
         Check if an order can be modified.
 
-        Orders can only be modified while still pending.
+        Orders can be modified while pending or processing.
 
         Args:
             order_status: Current status of the order
@@ -125,7 +125,7 @@ class OrderManager:
         Returns:
             True if order can be modified, False otherwise
         """
-        return order_status == OrderStatus.PENDING
+        return order_status in [OrderStatus.PENDING, OrderStatus.PROCESSING]
 
     def get_delivery_estimate(self, shipping_speed: ShippingSpeed) -> str:
         """

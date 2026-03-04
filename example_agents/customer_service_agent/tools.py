@@ -228,8 +228,8 @@ def calculate_shipping_cost(
         )
 
         if cost == 0:
-            return f"Free {shipping_speed.lower()} shipping for this order."
-        return f"{shipping_speed.lower().capitalize()} shipping costs ${cost:.2f}"
+            return f"Shipping cost: $0.00 (free {shipping_speed.lower()} shipping — order total ${order_total:.2f} qualifies for free shipping)."
+        return f"{shipping_speed.lower().capitalize()} shipping cost: ${cost:.2f} for order total ${order_total:.2f}."
 
     except Exception as e:
         return f"Error calculating shipping: {str(e)}"
