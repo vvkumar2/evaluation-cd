@@ -44,7 +44,6 @@ class RefundProcessor:
     - Refunds $200-$1000 require manager approval
     - Refunds over $1000 require executive approval
     - Damaged items: Full refund regardless of window
-    - Original packaging required for non-damaged returns
     """
 
     def __init__(self):
