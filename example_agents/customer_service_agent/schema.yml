@@ -46,6 +46,14 @@ entities:
         type: integer
         min: 0
         description: "Days since order was delivered (0 if not delivered)"
+      shipping_speed:
+        type: string
+        enum: [standard, expedited, express]
+        description: "Selected shipping speed for the order"
+      shipping_cost:
+        type: number
+        min: 0
+        description: "Shipping cost charged for the order in dollars"
 
   - name: customer
     table: customers

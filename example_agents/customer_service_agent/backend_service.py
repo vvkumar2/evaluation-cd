@@ -33,7 +33,9 @@ def create_schema(engine) -> None:
                 customer_id TEXT NOT NULL,
                 price REAL NOT NULL,
                 status TEXT NOT NULL,
-                delivered_date_days_ago INTEGER NOT NULL DEFAULT 0
+                delivered_date_days_ago INTEGER NOT NULL DEFAULT 0,
+                shipping_speed TEXT NOT NULL DEFAULT 'standard',
+                shipping_cost REAL NOT NULL DEFAULT 0.0
             )
         """))
         conn.commit()
@@ -87,65 +89,83 @@ def seed_sample_data(engine) -> None:
 
         conn.execute(
             text(
-                "INSERT INTO orders (id, customer_id, price, status, delivered_date_days_ago) "
-                "VALUES (:id, :customer_id, :price, :status, :delivered_date_days_ago)"
+                "INSERT INTO orders (id, customer_id, price, status, "
+                "delivered_date_days_ago, shipping_speed, shipping_cost) "
+                "VALUES (:id, :customer_id, :price, :status, "
+                ":delivered_date_days_ago, :shipping_speed, :shipping_cost)"
             ),
             [
-                {
+                {  # CUST-001 (standard), $75 >= $50 → free standard
                     "id": "ORD-001",
                     "customer_id": "CUST-001",
                     "price": 75.00,
                     "status": "delivered",
                     "delivered_date_days_ago": 5,
+                    "shipping_speed": "standard",
+                    "shipping_cost": 0.00,
                 },
-                {
+                {  # CUST-002 (gold), $250 → free expedited (gold perk)
                     "id": "ORD-002",
                     "customer_id": "CUST-002",
                     "price": 250.00,
                     "status": "delivered",
                     "delivered_date_days_ago": 35,
+                    "shipping_speed": "expedited",
+                    "shipping_cost": 0.00,
                 },
-                {
+                {  # CUST-003 (platinum), $1500 → free express (platinum perk)
                     "id": "ORD-003",
                     "customer_id": "CUST-003",
                     "price": 1500.00,
                     "status": "delivered",
                     "delivered_date_days_ago": 10,
+                    "shipping_speed": "express",
+                    "shipping_cost": 0.00,
                 },
-                {
+                {  # CUST-001 (standard), $49.99 < $50 → pays $12.99 expedited
                     "id": "ORD-004",
                     "customer_id": "CUST-001",
                     "price": 49.99,
                     "status": "shipped",
                     "delivered_date_days_ago": 0,
+                    "shipping_speed": "expedited",
+                    "shipping_cost": 12.99,
                 },
-                {
+                {  # CUST-004 (standard), $120 >= $50 → free standard
                     "id": "ORD-005",
                     "customer_id": "CUST-004",
                     "price": 120.00,
                     "status": "processing",
                     "delivered_date_days_ago": 0,
+                    "shipping_speed": "standard",
+                    "shipping_cost": 0.00,
                 },
-                {
+                {  # CUST-002 (gold), $199.99 → free standard (gold perk)
                     "id": "ORD-006",
                     "customer_id": "CUST-002",
                     "price": 199.99,
                     "status": "delivered",
                     "delivered_date_days_ago": 3,
+                    "shipping_speed": "standard",
+                    "shipping_cost": 0.00,
                 },
-                {
+                {  # CUST-005 (gold), $55 → free expedited (gold perk)
                     "id": "ORD-007",
                     "customer_id": "CUST-005",
                     "price": 55.00,
                     "status": "delivered",
                     "delivered_date_days_ago": 2,
+                    "shipping_speed": "expedited",
+                    "shipping_cost": 0.00,
                 },
-                {
+                {  # CUST-003 (platinum), $89.99 → free express (platinum perk)
                     "id": "ORD-008",
                     "customer_id": "CUST-003",
                     "price": 89.99,
                     "status": "pending",
                     "delivered_date_days_ago": 0,
+                    "shipping_speed": "express",
+                    "shipping_cost": 0.00,
                 },
             ],
         )

@@ -43,7 +43,7 @@ def lookup_order(order_id: str) -> str:
         row = conn.execute(
             text(
                 "SELECT o.id, o.customer_id, c.name, o.price, o.status, "
-                "o.delivered_date_days_ago "
+                "o.delivered_date_days_ago, o.shipping_speed, o.shipping_cost "
                 "FROM orders o JOIN customers c ON o.customer_id = c.id "
                 "WHERE o.id = :order_id"
             ),
@@ -53,13 +53,16 @@ def lookup_order(order_id: str) -> str:
     if not row:
         return f"Order {order_id} not found in system."
 
+    shipping_label = f"${row[7]:.2f}" if row[7] > 0 else "Free"
     return (
         f"Order Details:\n"
         f"ID: {row[0]}\n"
         f"Customer: {row[2]} ({row[1]})\n"
         f"Amount: ${row[3]:.2f}\n"
         f"Status: {row[4]}\n"
-        f"Days since delivery: {row[5]}"
+        f"Days since delivery: {row[5]}\n"
+        f"Shipping speed: {row[6]}\n"
+        f"Shipping cost: {shipping_label}"
     )
 
 
@@ -77,7 +80,8 @@ def get_customer_orders(customer_id: str) -> str:
     with db_engine.connect() as conn:
         rows = conn.execute(
             text(
-                "SELECT id, price, status, delivered_date_days_ago "
+                "SELECT id, price, status, delivered_date_days_ago, "
+                "shipping_speed, shipping_cost "
                 "FROM orders WHERE customer_id = :customer_id"
             ),
             {"customer_id": customer_id},
@@ -88,9 +92,11 @@ def get_customer_orders(customer_id: str) -> str:
 
     orders_text = f"Orders for customer {customer_id}:\n"
     for row in rows:
+        shipping_label = f"${row[5]:.2f}" if row[5] > 0 else "Free"
         orders_text += (
             f"- {row[0]}: ${row[1]:.2f}, Status: {row[2]}, "
-            f"Delivered {row[3]} days ago\n"
+            f"Delivered {row[3]} days ago, "
+            f"Shipping: {row[4]} ({shipping_label})\n"
         )
 
     return orders_text.rstrip()
@@ -167,12 +173,20 @@ def process_refund_request(
             RefundStatus.PENDING_REVIEW: "PENDING_REVIEW",
         }.get(status, "UNKNOWN")
 
-        return (
+        result = (
             f"Refund Request Result:\n"
             f"  Status: {status_text}\n"
             f"  Order: {order_id}\n"
             f"  Amount: ${order_total:.2f}"
         )
+
+        if status == RefundStatus.PENDING_REVIEW:
+            if order_total > 1000:
+                result += "\n  Approval level: executive"
+            else:
+                result += "\n  Approval level: manager"
+
+        return result
 
     except Exception as e:
         return f"Error processing refund: {str(e)}"
@@ -233,6 +247,44 @@ def calculate_shipping_cost(
 
     except Exception as e:
         return f"Error calculating shipping: {str(e)}"
+
+
+@tool
+def cancel_order(order_id: str) -> str:
+    """
+    Cancel an order if it is in a cancellable state (pending or processing).
+
+    Args:
+        order_id: The order ID to cancel (e.g., "ORD-001")
+
+    Returns:
+        Cancellation result as a formatted string
+    """
+    with db_engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT id, status FROM orders WHERE id = :order_id"),
+            {"order_id": order_id},
+        ).fetchone()
+
+        if not row:
+            return f"Order {order_id} not found in system."
+
+        status = row[1]
+        cancellable_statuses = {"pending", "processing"}
+        if status not in cancellable_statuses:
+            return (
+                f"Order {order_id} cannot be cancelled — "
+                f"current status is '{status}'. "
+                f"Only orders with status 'pending' or 'processing' can be cancelled."
+            )
+
+        conn.execute(
+            text("UPDATE orders SET status = 'cancelled' WHERE id = :order_id"),
+            {"order_id": order_id},
+        )
+        conn.commit()
+
+    return f"Order {order_id} has been successfully cancelled."
 
 
 @tool
@@ -327,6 +379,7 @@ def get_tools():
         process_refund_request,
         get_refund_window,
         calculate_shipping_cost,
+        cancel_order,
         check_can_cancel_order,
         check_can_modify_order,
         get_delivery_estimate,
