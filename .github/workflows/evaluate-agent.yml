@@ -1,0 +1,137 @@
+name: evaluator
+
+on: push
+
+permissions:
+  contents: read
+  statuses: write
+  pages: write
+  id-token: write
+
+jobs:
+  # Dynamically discover all valid agent directories under test_agents/
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      agents: ${{ steps.find.outputs.agents }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find agents
+        id: find
+        run: |
+          agents="[]"
+          for dir in test_agents/*/; do
+            [ ! -d "$dir" ] && continue
+            name=$(basename "$dir")
+            # Only include directories that have the required agent files
+            if [ -f "$dir/agent.py" ] && [ -f "$dir/schema.yml" ]; then
+              agents=$(echo "$agents" | jq -c --arg n "$name" '. + [$n]')
+            else
+              echo "::warning::Skipping $name — missing agent.py or schema.yml"
+            fi
+          done
+          if [ "$agents" = "[]" ]; then
+            echo "::error::No valid agents found in test_agents/"
+            exit 1
+          fi
+          echo "agents=$agents" >> "$GITHUB_OUTPUT"
+          echo "Found agents: $agents"
+
+  evaluate:
+    needs: discover
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: evaluation
+    strategy:
+      fail-fast: false
+      matrix:
+        agent: ${{ fromJson(needs.discover.outputs.agents) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install .
+          pip install -r test_agents/${{ matrix.agent }}/requirements.txt
+
+      - name: Run evaluation pipeline
+        id: eval
+        continue-on-error: true
+        run: agent-eval run-pipeline --agent-dir test_agents/${{ matrix.agent }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_TEAM_ID: ${{ secrets.SLACK_TEAM_ID }}
+          SLACK_ESCALATION_CHANNEL_ID: ${{ secrets.SLACK_ESCALATION_CHANNEL_ID }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.agent }}
+          path: test_agents/${{ matrix.agent }}/tests/
+
+      - name: Report status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const passed = '${{ steps.eval.outputs.passed_tests }}' || '0';
+            const total = '${{ steps.eval.outputs.total_tests }}' || '0';
+            const passRate = '${{ steps.eval.outputs.pass_rate }}' || '0';
+            const state = '${{ steps.eval.outcome }}' === 'success' ? 'success' : 'failure';
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state,
+              description: `${passed}/${total} tests passed (${passRate}%) – ${{ matrix.agent }}`,
+              context: 'Agent Evaluation: ${{ matrix.agent }}',
+            });
+
+  # Single Pages deployment that combines all agent reports
+  deploy-reports:
+    needs: [discover, evaluate]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Download all test artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*
+          path: artifacts
+
+      - name: Build site
+        run: |
+          mkdir -p _site
+          echo '<html><head><title>Agent Evaluation Reports</title></head><body>' > _site/index.html
+          echo '<h1>Agent Evaluation Reports</h1><ul>' >> _site/index.html
+          for dir in artifacts/test-results-*/; do
+            agent=$(basename "$dir" | sed 's/test-results-//')
+            mkdir -p "_site/$agent"
+            find "$dir" -name '*.html' -exec cp {} "_site/$agent/" \; 2>/dev/null
+            report=$(find "_site/$agent" -name '*report.html' | head -1)
+            if [ -n "$report" ]; then
+              echo "<li><a href=\"$agent/$(basename "$report")\">$agent</a></li>" >> _site/index.html
+            else
+              echo "<li>$agent — no report</li>" >> _site/index.html
+            fi
+          done
+          echo '</ul></body></html>' >> _site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - uses: actions/deploy-pages@v4

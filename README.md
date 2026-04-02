@@ -7,22 +7,22 @@
 ### how to use
 **to run full pipeline (extract rules, generate tests, run tests)**
 ```bash
-python -m src.cli.main run-pipeline --agent-dir example_agents/customer_service_agent
+python -m src.cli.main run-pipeline --agent-dir test_agents/customer_service_agent
 ```
 
 **to run individual steps**
 ```bash
-python -m src.cli.main extract --agent-dir example_agents/customer_service_agent
+python -m src.cli.main extract --agent-dir test_agents/customer_service_agent
 ```
 ```bash
 python -m src.cli.main generate-tests \
   --extraction-file tests/extraction/customer_service_agent_extraction.yml \
-  --entity-schema example_agents/customer_service_agent/entity_schema.yml
+  --entity-schema test_agents/customer_service_agent/entity_schema.yml
 ```
 ```bash
 python -m src.cli.main run-tests \
   --test-file tests/generation/customer_service_agent_extraction_tests.yml \
-  --agent-dir example_agents/customer_service_agent
+  --agent-dir test_agents/customer_service_agent
 ```
 
 ### before contributing
