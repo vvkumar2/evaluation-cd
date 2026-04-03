@@ -70,6 +70,9 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_TEAM_ID: ${{ secrets.SLACK_TEAM_ID }}
           SLACK_ESCALATION_CHANNEL_ID: ${{ secrets.SLACK_ESCALATION_CHANNEL_ID }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          SENDER_EMAIL_ADDRESS: ${{ secrets.SENDER_EMAIL_ADDRESS }}
+          PAGERDUTY_USER_API_KEY: ${{ secrets.PAGERDUTY_USER_API_KEY }}
 
       - name: Upload test results
         if: always()
