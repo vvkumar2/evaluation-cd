@@ -243,7 +243,9 @@ def list_system_issues() -> str:
 
     issues_text = "Systems with issues:\n"
     for row in rows:
-        issues_text += f"- {row[1]} ({row[0]}): {row[2].upper()} (Last checked: {row[3]})\n"
+        issues_text += (
+            f"- {row[1]} ({row[0]}): {row[2].upper()} (Last checked: {row[3]})\n"
+        )
 
     return issues_text.rstrip()
 
@@ -284,14 +286,34 @@ def reset_password(employee_id: str, requester_id: str) -> str:
         if not requester:
             return f"Requester {requester_id} not found in system."
 
-    target_dict = dict(zip(
-        ["id", "name", "email", "department", "role", "mfa_enabled", "account_status"],
-        target,
-    ))
-    requester_dict = dict(zip(
-        ["id", "name", "email", "department", "role", "mfa_enabled", "account_status"],
-        requester,
-    ))
+    target_dict = dict(
+        zip(
+            [
+                "id",
+                "name",
+                "email",
+                "department",
+                "role",
+                "mfa_enabled",
+                "account_status",
+            ],
+            target,
+        )
+    )
+    requester_dict = dict(
+        zip(
+            [
+                "id",
+                "name",
+                "email",
+                "department",
+                "role",
+                "mfa_enabled",
+                "account_status",
+            ],
+            requester,
+        )
+    )
 
     result = password_manager.reset_password(target_dict, requester_dict)
 
@@ -308,7 +330,9 @@ def reset_password(employee_id: str, requester_id: str) -> str:
     if result["status"] == "success":
         output += f"\n  Temporary Password: {result['temp_password']}"
         output += f"\n  Account Unlocked: {result['account_unlocked']}"
-        output += f"\n  MFA Re-enrollment Required: {result['mfa_reenrollment_required']}"
+        output += (
+            f"\n  MFA Re-enrollment Required: {result['mfa_reenrollment_required']}"
+        )
         output += f"\n  Employee Email: {result['employee_email']}"
 
     return output
@@ -329,7 +353,9 @@ def request_access(employee_id: str, system_name: str, permission_level: str) ->
     """
     with db_engine.connect() as conn:
         employee = conn.execute(
-            text("SELECT id, name, email, department, role FROM employees WHERE id = :eid"),
+            text(
+                "SELECT id, name, email, department, role FROM employees WHERE id = :eid"
+            ),
             {"eid": employee_id},
         ).fetchone()
 
@@ -337,7 +363,9 @@ def request_access(employee_id: str, system_name: str, permission_level: str) ->
             return f"Employee {employee_id} not found in system."
 
         system = conn.execute(
-            text("SELECT id, name, status FROM systems WHERE LOWER(name) = LOWER(:name)"),
+            text(
+                "SELECT id, name, status FROM systems WHERE LOWER(name) = LOWER(:name)"
+            ),
             {"name": system_name},
         ).fetchone()
 
@@ -355,7 +383,19 @@ def request_access(employee_id: str, system_name: str, permission_level: str) ->
     employee_dict = dict(zip(["id", "name", "email", "department", "role"], employee))
     system_dict = dict(zip(["id", "name", "status"], system))
     perms_list = [
-        dict(zip(["id", "employee_id", "system_id", "permission_level", "granted_by", "expires_at"], p))
+        dict(
+            zip(
+                [
+                    "id",
+                    "employee_id",
+                    "system_id",
+                    "permission_level",
+                    "granted_by",
+                    "expires_at",
+                ],
+                p,
+            )
+        )
         for p in existing_perms
     ]
 
@@ -366,7 +406,9 @@ def request_access(employee_id: str, system_name: str, permission_level: str) ->
     # If approved, create permission record
     if result["status"] == "approved":
         with db_engine.connect() as conn:
-            row = conn.execute(text("SELECT COUNT(*) FROM access_permissions")).fetchone()
+            row = conn.execute(
+                text("SELECT COUNT(*) FROM access_permissions")
+            ).fetchone()
             perm_id = f"PERM-{(row[0] + 1):03d}"
 
             conn.execute(
@@ -406,7 +448,9 @@ def request_software_install(employee_id: str, software_name: str) -> str:
     """
     with db_engine.connect() as conn:
         employee = conn.execute(
-            text("SELECT id, name, email, department, role FROM employees WHERE id = :eid"),
+            text(
+                "SELECT id, name, email, department, role FROM employees WHERE id = :eid"
+            ),
             {"eid": employee_id},
         ).fetchone()
 
@@ -425,7 +469,9 @@ def request_software_install(employee_id: str, software_name: str) -> str:
             return f"Software '{software_name}' not found in catalog."
 
     employee_dict = dict(zip(["id", "name", "email", "department", "role"], employee))
-    software_dict = dict(zip(["id", "name", "requires_approval", "approved_roles"], software))
+    software_dict = dict(
+        zip(["id", "name", "requires_approval", "approved_roles"], software)
+    )
 
     result = access_manager.request_software_install(employee_dict, software_dict)
 
@@ -462,10 +508,12 @@ def escalate_ticket(ticket_id: str, reason: str) -> str:
         if not ticket_row:
             return f"Ticket {ticket_id} not found in system."
 
-        ticket_dict = dict(zip(
-            ["id", "employee_id", "category", "priority", "status", "description"],
-            ticket_row,
-        ))
+        ticket_dict = dict(
+            zip(
+                ["id", "employee_id", "category", "priority", "status", "description"],
+                ticket_row,
+            )
+        )
 
         # Check for associated system status if it's a system_issue
         system_status = None

@@ -142,7 +142,7 @@ def _get_pagerduty_server_params():
         env={
             **os.environ,
             "PAGERDUTY_USER_API_KEY": pd_api_key,
-            "PAGERDUTY_API_HOST": "https://api.pagerduty.com"
+            "PAGERDUTY_API_HOST": "https://api.pagerduty.com",
         },
     )
 
@@ -270,7 +270,7 @@ async def load_all_tools(tool_interceptors=None) -> tuple[list, AsyncExitStack]:
     """
     tools = get_tools()
     stack = AsyncExitStack()
-    
+
     # Load Resend email tools
     resend_params = _get_resend_server_params()
     resend_tools = await _load_mcp_tools_from_server(
@@ -283,9 +283,7 @@ async def load_all_tools(tool_interceptors=None) -> tuple[list, AsyncExitStack]:
 
     # Load PagerDuty tools
     pd_params = _get_pagerduty_server_params()
-    pd_tools = await _load_mcp_tools_from_server(
-        stack, pd_params, tool_interceptors
-    )
+    pd_tools = await _load_mcp_tools_from_server(stack, pd_params, tool_interceptors)
     for tool in pd_tools:
         if tool.name == "create-incident":
             tools.append(tool)

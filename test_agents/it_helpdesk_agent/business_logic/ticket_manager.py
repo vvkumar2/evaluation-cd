@@ -61,9 +61,7 @@ class TicketManager:
             }
 
         priority = ticket.get("priority", "low")
-        pagerduty_required = (
-            priority == "critical" and system_status == "outage"
-        )
+        pagerduty_required = priority == "critical" and system_status == "outage"
 
         return {
             "status": "escalated",

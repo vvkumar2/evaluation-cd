@@ -84,11 +84,51 @@ def seed_sample_data(engine) -> None:
                 "VALUES (:id, :name, :email, :department, :role, :mfa_enabled, :account_status)"
             ),
             [
-                {"id": "EMP-001", "name": "Alice Chen", "email": "alice@company.com", "department": "engineering", "role": "admin", "mfa_enabled": True, "account_status": "active"},
-                {"id": "EMP-002", "name": "Bob Martinez", "email": "vvkumar5623@gmail.com", "department": "sales", "role": "user", "mfa_enabled": True, "account_status": "active"},
-                {"id": "EMP-003", "name": "Carol Davis", "email": "carol@company.com", "department": "hr", "role": "user", "mfa_enabled": False, "account_status": "locked"},
-                {"id": "EMP-004", "name": "David Lee", "email": "david@company.com", "department": "engineering", "role": "user", "mfa_enabled": False, "account_status": "disabled"},
-                {"id": "EMP-005", "name": "Eve Wilson", "email": "eve@company.com", "department": "engineering", "role": "admin", "mfa_enabled": True, "account_status": "active"},
+                {
+                    "id": "EMP-001",
+                    "name": "Alice Chen",
+                    "email": "alice@company.com",
+                    "department": "engineering",
+                    "role": "admin",
+                    "mfa_enabled": True,
+                    "account_status": "active",
+                },
+                {
+                    "id": "EMP-002",
+                    "name": "Bob Martinez",
+                    "email": "vvkumar5623@gmail.com",
+                    "department": "sales",
+                    "role": "user",
+                    "mfa_enabled": True,
+                    "account_status": "active",
+                },
+                {
+                    "id": "EMP-003",
+                    "name": "Carol Davis",
+                    "email": "carol@company.com",
+                    "department": "hr",
+                    "role": "user",
+                    "mfa_enabled": False,
+                    "account_status": "locked",
+                },
+                {
+                    "id": "EMP-004",
+                    "name": "David Lee",
+                    "email": "david@company.com",
+                    "department": "engineering",
+                    "role": "user",
+                    "mfa_enabled": False,
+                    "account_status": "disabled",
+                },
+                {
+                    "id": "EMP-005",
+                    "name": "Eve Wilson",
+                    "email": "eve@company.com",
+                    "department": "engineering",
+                    "role": "admin",
+                    "mfa_enabled": True,
+                    "account_status": "active",
+                },
             ],
         )
 
@@ -98,9 +138,36 @@ def seed_sample_data(engine) -> None:
                 "VALUES (:id, :employee_id, :category, :priority, :status, :description, :assigned_to, :created_at)"
             ),
             [
-                {"id": "TKT-001", "employee_id": "EMP-002", "category": "password_reset", "priority": "medium", "status": "open", "description": "Cannot log in to email", "assigned_to": None, "created_at": "2026-03-28"},
-                {"id": "TKT-002", "employee_id": "EMP-003", "category": "system_issue", "priority": "critical", "status": "in_progress", "description": "VPN Gateway completely down", "assigned_to": "EMP-001", "created_at": "2026-03-30"},
-                {"id": "TKT-003", "employee_id": "EMP-002", "category": "software_install", "priority": "low", "status": "resolved", "description": "Install Tableau on workstation", "assigned_to": "EMP-005", "created_at": "2026-03-25"},
+                {
+                    "id": "TKT-001",
+                    "employee_id": "EMP-002",
+                    "category": "password_reset",
+                    "priority": "medium",
+                    "status": "open",
+                    "description": "Cannot log in to email",
+                    "assigned_to": None,
+                    "created_at": "2026-03-28",
+                },
+                {
+                    "id": "TKT-002",
+                    "employee_id": "EMP-003",
+                    "category": "system_issue",
+                    "priority": "critical",
+                    "status": "in_progress",
+                    "description": "VPN Gateway completely down",
+                    "assigned_to": "EMP-001",
+                    "created_at": "2026-03-30",
+                },
+                {
+                    "id": "TKT-003",
+                    "employee_id": "EMP-002",
+                    "category": "software_install",
+                    "priority": "low",
+                    "status": "resolved",
+                    "description": "Install Tableau on workstation",
+                    "assigned_to": "EMP-005",
+                    "created_at": "2026-03-25",
+                },
             ],
         )
 
@@ -110,11 +177,36 @@ def seed_sample_data(engine) -> None:
                 "VALUES (:id, :name, :status, :last_checked)"
             ),
             [
-                {"id": "SYS-001", "name": "Email Server", "status": "operational", "last_checked": "2026-04-01T08:00:00"},
-                {"id": "SYS-002", "name": "VPN Gateway", "status": "outage", "last_checked": "2026-04-01T07:30:00"},
-                {"id": "SYS-003", "name": "HR Portal", "status": "degraded", "last_checked": "2026-04-01T07:45:00"},
-                {"id": "SYS-004", "name": "Code Repository", "status": "operational", "last_checked": "2026-04-01T08:00:00"},
-                {"id": "SYS-005", "name": "CI/CD Pipeline", "status": "operational", "last_checked": "2026-04-01T08:00:00"},
+                {
+                    "id": "SYS-001",
+                    "name": "Email Server",
+                    "status": "operational",
+                    "last_checked": "2026-04-01T08:00:00",
+                },
+                {
+                    "id": "SYS-002",
+                    "name": "VPN Gateway",
+                    "status": "outage",
+                    "last_checked": "2026-04-01T07:30:00",
+                },
+                {
+                    "id": "SYS-003",
+                    "name": "HR Portal",
+                    "status": "degraded",
+                    "last_checked": "2026-04-01T07:45:00",
+                },
+                {
+                    "id": "SYS-004",
+                    "name": "Code Repository",
+                    "status": "operational",
+                    "last_checked": "2026-04-01T08:00:00",
+                },
+                {
+                    "id": "SYS-005",
+                    "name": "CI/CD Pipeline",
+                    "status": "operational",
+                    "last_checked": "2026-04-01T08:00:00",
+                },
             ],
         )
 
@@ -124,9 +216,30 @@ def seed_sample_data(engine) -> None:
                 "VALUES (:id, :employee_id, :system_id, :permission_level, :granted_by, :expires_at)"
             ),
             [
-                {"id": "PERM-001", "employee_id": "EMP-001", "system_id": "SYS-004", "permission_level": "admin", "granted_by": "EMP-001", "expires_at": None},
-                {"id": "PERM-002", "employee_id": "EMP-002", "system_id": "SYS-001", "permission_level": "read", "granted_by": "EMP-001", "expires_at": "2026-06-01"},
-                {"id": "PERM-003", "employee_id": "EMP-003", "system_id": "SYS-003", "permission_level": "write", "granted_by": "EMP-005", "expires_at": "2025-12-31"},
+                {
+                    "id": "PERM-001",
+                    "employee_id": "EMP-001",
+                    "system_id": "SYS-004",
+                    "permission_level": "admin",
+                    "granted_by": "EMP-001",
+                    "expires_at": None,
+                },
+                {
+                    "id": "PERM-002",
+                    "employee_id": "EMP-002",
+                    "system_id": "SYS-001",
+                    "permission_level": "read",
+                    "granted_by": "EMP-001",
+                    "expires_at": "2026-06-01",
+                },
+                {
+                    "id": "PERM-003",
+                    "employee_id": "EMP-003",
+                    "system_id": "SYS-003",
+                    "permission_level": "write",
+                    "granted_by": "EMP-005",
+                    "expires_at": "2025-12-31",
+                },
             ],
         )
 
@@ -136,11 +249,36 @@ def seed_sample_data(engine) -> None:
                 "VALUES (:id, :name, :requires_approval, :approved_roles)"
             ),
             [
-                {"id": "SW-001", "name": "VS Code", "requires_approval": False, "approved_roles": ""},
-                {"id": "SW-002", "name": "Tableau", "requires_approval": True, "approved_roles": "admin,engineering"},
-                {"id": "SW-003", "name": "Photoshop", "requires_approval": True, "approved_roles": "admin"},
-                {"id": "SW-004", "name": "Slack", "requires_approval": False, "approved_roles": ""},
-                {"id": "SW-005", "name": "Terraform", "requires_approval": True, "approved_roles": "admin,engineering"},
+                {
+                    "id": "SW-001",
+                    "name": "VS Code",
+                    "requires_approval": False,
+                    "approved_roles": "",
+                },
+                {
+                    "id": "SW-002",
+                    "name": "Tableau",
+                    "requires_approval": True,
+                    "approved_roles": "admin,engineering",
+                },
+                {
+                    "id": "SW-003",
+                    "name": "Photoshop",
+                    "requires_approval": True,
+                    "approved_roles": "admin",
+                },
+                {
+                    "id": "SW-004",
+                    "name": "Slack",
+                    "requires_approval": False,
+                    "approved_roles": "",
+                },
+                {
+                    "id": "SW-005",
+                    "name": "Terraform",
+                    "requires_approval": True,
+                    "approved_roles": "admin,engineering",
+                },
             ],
         )
 

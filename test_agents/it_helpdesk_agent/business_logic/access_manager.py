@@ -152,7 +152,9 @@ class AccessManager:
         # Check if employee role is in approved_roles
         approved_roles = software.get("approved_roles", "")
         if isinstance(approved_roles, str):
-            role_list = [r.strip().lower() for r in approved_roles.split(",") if r.strip()]
+            role_list = [
+                r.strip().lower() for r in approved_roles.split(",") if r.strip()
+            ]
         else:
             role_list = [str(r).lower() for r in approved_roles]
 
