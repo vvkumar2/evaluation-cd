@@ -17,4 +17,4 @@ tests/
 # Claude
 CLAUDE.md
 .playwright-mcp/*
-
+docs/*

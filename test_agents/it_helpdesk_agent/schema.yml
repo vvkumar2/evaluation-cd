@@ -1,0 +1,163 @@
+agent:
+  tools_file: tools.py
+  entry_file: agent.py
+  system_prompt_var: SYSTEM_PROMPT
+  get_tools_func: get_tools
+  handle_message_func: handle_message
+
+backend:
+  type: sqlite
+  db_engine_attr: db_engine
+
+external_tools:
+  - name: send_email
+    description: "Send an email via Resend"
+    mock_response: "Email sent successfully"
+    parameters:
+      to:
+        type: string
+        description: "Recipient email address"
+        required: true
+      subject:
+        type: string
+        description: "Email subject line"
+        required: true
+      text:
+        type: string
+        description: "Email body text"
+        required: true
+
+  - name: pagerduty_create_incident
+    description: "Create a PagerDuty incident for critical escalations"
+    mock_response: "Incident created successfully"
+    parameters:
+      title:
+        type: string
+        description: "Incident title"
+        required: true
+      description:
+        type: string
+        description: "Incident description with details"
+        required: true
+
+entities:
+  - name: employee
+    table: employees
+    description: "Company employee information"
+    fields:
+      id:
+        type: string
+        description: "Employee ID (e.g., EMP-001)"
+      name:
+        type: string
+        description: "Employee full name"
+      email:
+        type: string
+        format: email
+        description: "Employee email address"
+      department:
+        type: string
+        enum: [engineering, sales, hr, finance, marketing]
+        description: "Employee department"
+      role:
+        type: string
+        enum: [admin, user]
+        description: "Employee role (admin has elevated privileges)"
+      mfa_enabled:
+        type: boolean
+        description: "Whether MFA is enabled for the employee"
+      account_status:
+        type: string
+        enum: [active, locked, disabled]
+        description: "Current account status"
+
+  - name: ticket
+    table: tickets
+    description: "IT support tickets"
+    fields:
+      id:
+        type: string
+        description: "Ticket ID (e.g., TKT-001)"
+      employee_id:
+        type: string
+        description: "Employee who created the ticket"
+      category:
+        type: string
+        enum: [password_reset, access_request, software_install, system_issue, general]
+        description: "Ticket category"
+      priority:
+        type: string
+        enum: [low, medium, high, critical]
+        description: "Ticket priority level"
+      status:
+        type: string
+        enum: [open, in_progress, resolved, escalated]
+        description: "Current ticket status"
+      description:
+        type: string
+        description: "Description of the issue"
+      assigned_to:
+        type: string
+        description: "Employee ID of the assignee (nullable)"
+      created_at:
+        type: string
+        description: "Date the ticket was created (ISO format)"
+
+  - name: system
+    table: systems
+    description: "IT systems and services"
+    fields:
+      id:
+        type: string
+        description: "System ID (e.g., SYS-001)"
+      name:
+        type: string
+        description: "System name (e.g., Email Server, VPN Gateway)"
+      status:
+        type: string
+        enum: [operational, degraded, outage]
+        description: "Current system status"
+      last_checked:
+        type: string
+        description: "ISO datetime of last status check"
+
+  - name: access_permission
+    table: access_permissions
+    description: "Employee access permissions for systems"
+    fields:
+      id:
+        type: string
+        description: "Permission ID (e.g., PERM-001)"
+      employee_id:
+        type: string
+        description: "Employee who has the permission"
+      system_id:
+        type: string
+        description: "System the permission is for"
+      permission_level:
+        type: string
+        enum: [read, write, admin]
+        description: "Level of access granted"
+      granted_by:
+        type: string
+        description: "Employee ID who granted the permission"
+      expires_at:
+        type: string
+        description: "Expiration date (ISO format, nullable)"
+
+  - name: software
+    table: software_catalog
+    description: "Available software for installation"
+    fields:
+      id:
+        type: string
+        description: "Software ID (e.g., SW-001)"
+      name:
+        type: string
+        description: "Software name"
+      requires_approval:
+        type: boolean
+        description: "Whether installation requires manager approval"
+      approved_roles:
+        type: string
+        description: "Comma-separated roles that can self-install (e.g., admin,engineering)"
